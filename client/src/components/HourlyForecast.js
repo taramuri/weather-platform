@@ -1,121 +1,165 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Typography, 
   Grid, 
   Paper, 
-  Box, 
-  useMediaQuery, 
-  useTheme 
+  Typography, 
+  Box 
 } from '@mui/material';
+import { 
+  WbSunny as SunnyIcon, 
+  Cloud as CloudyIcon,
+  WbCloudy as PartlyCloudyIcon,
+  Thunderstorm as ThunderstormIcon,
+  AcUnit as SnowIcon,
+  BeachAccess as RainIcon,
+  WaterDrop as DrizzleIcon,
+  Opacity as HumidIcon,
+  FilterDrama as FogIcon
+} from '@mui/icons-material';
 
-// Функція для форматування часу
-const formatTime = (date) => {
-  return date.toLocaleTimeString('uk-UA', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  });
+// Enhanced weather icon mapping with more comprehensive keywords
+const weatherIconMap = {
+  'sunny': {
+    keywords: ['clear', 'sunny', 'sun', 'fair', 'bright', 'ясно', 'сонячно'],
+    icon: SunnyIcon,
+    label: 'Сонячно'
+  },
+  'partly_cloudy': {
+    keywords: ['partly cloudy', 'few clouds', 'mostly sunny', 'some clouds', 'невелика хмарність'],
+    icon: PartlyCloudyIcon,
+    label: 'Мінлива хмарність'
+  },
+  'cloudy': {
+    keywords: ['cloudy', 'cloud', 'overcast', 'grey', 'mostly cloudy', 'covered', 'хмарно', 'хмарність'],
+    icon: CloudyIcon,
+    label: 'Хмарно'
+  },
+  'thunderstorm': {
+    keywords: ['thunder', 'thunderstorm', 'lightning', 'storm', 'electric', 'гроза', 'блискавка'],
+    icon: ThunderstormIcon,
+    label: 'Гроза'
+  },
+  'snow': {
+    keywords: ['snow', 'snowy', 'sleet', 'freezing', 'wintery', 'blizzard', 'сніг', 'снігопад'],
+    icon: SnowIcon,
+    label: 'Сніг'
+  },
+  'rain': {
+    keywords: ['rain', 'rainy', 'shower', 'precipitation', 'downpour', 'rainfall', 'дощ', 'місцями дощ'],
+    icon: RainIcon,
+    label: 'Дощ'
+  },
+  'drizzle': {
+    keywords: ['drizzle', 'light rain', 'sprinkle', 'mizzle', 'невеликий дощ'],
+    icon: DrizzleIcon,
+    label: 'Невеликий дощ'
+  },
+  'fog': {
+    keywords: ['mist', 'fog', 'haze', 'misty', 'foggy', 'туман', 'мряка'],
+    icon: FogIcon,
+    label: 'Туман'
+  }
 };
 
-// Функція для визначення іконки погоди
-const getWeatherIcon = (description) => {
+function getWeatherIcon(description) {
+  if (!description) return { icon: CloudyIcon, label: 'Хмарно' };
+  
   const lowerDescription = description.toLowerCase();
-  
-  if (lowerDescription.includes('sun') || lowerDescription.includes('clear')) {
-    return '☀️';
+ 
+  for (const [type, config] of Object.entries(weatherIconMap)) {
+    if (lowerDescription === type || 
+        config.keywords.some(keyword => lowerDescription.includes(keyword))) {
+      return { icon: config.icon, label: config.label };
+    }
   }
-  
-  if (lowerDescription.includes('cloud')) {
-    return '☁️';
-  }
-  
-  if (lowerDescription.includes('rain')) {
-    return '🌧️';
-  }
-  
-  if (lowerDescription.includes('snow')) {
-    return '❄️';
-  }
-  
-  return '🌤️'; // За замовчуванням
-};
+ 
+  return { icon: CloudyIcon, label: 'Хмарно' };
+}
 
-function HourlyForecast({ city }) {
+function HourlyForecast({ city, selectedDay }) {
   const [hourlyForecast, setHourlyForecast] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const theme = useTheme();
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
-
-  useEffect(() => {
-    const fetchHourlyForecast = async () => {
-      if (!city) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(`http://localhost:5000/api/weather/hourly/${city}`);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Помилка отримання погодинного прогнозу');
-        }
-        
-        const data = await response.json();
-        setHourlyForecast(data);
-      } catch (err) {
-        console.error('Помилка:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  const fetchHourlyForecast = async () => {
+    if (!city) return;
+  
+    setLoading(true);
+    setError('');
+  
+    try {
+      const response = await fetch(`http://localhost:5000/api/weather/hourly/${city}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Помилка отримання погодинного прогнозу');
       }
-    };
-
+      
+      const data = await response.json();
+      
+      // Змініть логіку фільтрації
+      const filteredHourlyData = data.filter(hour => {
+        const hourDate = new Date(hour.time);
+        const selectedDate = new Date(selectedDay.date);
+        
+        return (
+          hourDate.getFullYear() === selectedDate.getFullYear() &&
+          hourDate.getMonth() === selectedDate.getMonth() &&
+          hourDate.getDate() === selectedDate.getDate()
+        );
+      });
+  
+      setHourlyForecast(filteredHourlyData);
+    } catch (err) {
+      console.error('Помилка:', err);
+      setError(err.message || 'Помилка отримання погодинного прогнозу');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
     fetchHourlyForecast();
-  }, [city]);
+  }, [city, selectedDay]);
 
   if (loading) return <Typography>Завантаження...</Typography>;
   if (error) return <Typography color="error">{error}</Typography>;
-  if (!hourlyForecast.length) return null;
 
   return (
-    <Paper sx={{ p: 2, mt: 2 }}>
-      <Typography variant="h6" gutterBottom>
+    <Grid item xs={12} sx={{ mt: 2 }}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
         Погодинний прогноз
       </Typography>
-      <Grid 
-        container 
-        spacing={isSmallScreen ? 1 : 2} 
-        justifyContent="center"
-      >
-        {hourlyForecast.map((hourData, index) => (
-          <Grid item xs={4} sm={3} md={2} key={index}>
+      <Box sx={{ 
+        display: 'flex', 
+        overflowX: 'auto', 
+        gap: 2, 
+        pb: 2 
+      }}>
+        {hourlyForecast.map((hour, index) => {
+          const { icon: HourIcon, label } = getWeatherIcon(hour.description);
+          const time = new Date(hour.time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+
+          return (
             <Paper 
-              elevation={3} 
+              key={index} 
               sx={{ 
-                p: 1, 
-                textAlign: 'center', 
-                bgcolor: 'background.default' 
+                minWidth: 120, 
+                p: 2, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center' 
               }}
             >
-              <Typography variant="subtitle2">
-                {formatTime(new Date(hourData.time))}
-              </Typography>
-              <Box sx={{ fontSize: '2rem', my: 1 }}>
-                {getWeatherIcon(hourData.description)}
-              </Box>
-              <Typography variant="body2">
-                {Math.round(hourData.temperature)}°C
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {hourData.description}
-              </Typography>
+              <Typography variant="subtitle2">{time}</Typography>
+              <HourIcon color="action" sx={{ my: 1 }} />
+    <Typography>{Math.round(hour.temperature)}°C</Typography>
+    <Typography variant="caption">{label}</Typography>
             </Paper>
-          </Grid>
-        ))}
-      </Grid>
-    </Paper>
+          );
+        })}
+      </Box>
+    </Grid>
   );
 }
 
