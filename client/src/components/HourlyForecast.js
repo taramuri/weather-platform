@@ -17,52 +17,68 @@ import {
   FilterDrama as FogIcon
 } from '@mui/icons-material';
 
-// Enhanced weather icon mapping with more comprehensive keywords
 const weatherIconMap = {
   'sunny': {
     keywords: ['clear', 'sunny', 'sun', 'fair', 'bright', 'ясно', 'сонячно'],
+    codes: [0, 1], 
     icon: SunnyIcon,
     label: 'Сонячно'
   },
   'partly_cloudy': {
     keywords: ['partly cloudy', 'few clouds', 'mostly sunny', 'some clouds', 'невелика хмарність'],
+    codes: [2], 
     icon: PartlyCloudyIcon,
     label: 'Мінлива хмарність'
   },
   'cloudy': {
     keywords: ['cloudy', 'cloud', 'overcast', 'grey', 'mostly cloudy', 'covered', 'хмарно', 'хмарність'],
+    codes: [3], 
     icon: CloudyIcon,
     label: 'Хмарно'
   },
-  'thunderstorm': {
-    keywords: ['thunder', 'thunderstorm', 'lightning', 'storm', 'electric', 'гроза', 'блискавка'],
-    icon: ThunderstormIcon,
-    label: 'Гроза'
-  },
-  'snow': {
-    keywords: ['snow', 'snowy', 'sleet', 'freezing', 'wintery', 'blizzard', 'сніг', 'снігопад'],
-    icon: SnowIcon,
-    label: 'Сніг'
-  },
-  'rain': {
-    keywords: ['rain', 'rainy', 'shower', 'precipitation', 'downpour', 'rainfall', 'дощ', 'місцями дощ'],
-    icon: RainIcon,
-    label: 'Дощ'
+  'fog': {
+    keywords: ['mist', 'fog', 'haze', 'misty', 'foggy', 'туман', 'мряка'],
+    codes: [45, 48], 
+    icon: FogIcon,
+    label: 'Туман'
   },
   'drizzle': {
     keywords: ['drizzle', 'light rain', 'sprinkle', 'mizzle', 'невеликий дощ'],
+    codes: [51, 53, 55, 56, 57], 
     icon: DrizzleIcon,
     label: 'Невеликий дощ'
   },
-  'fog': {
-    keywords: ['mist', 'fog', 'haze', 'misty', 'foggy', 'туман', 'мряка'],
-    icon: FogIcon,
-    label: 'Туман'
+  'rain': {
+    keywords: ['rain', 'rainy', 'shower', 'precipitation', 'downpour', 'rainfall', 'дощ', 'місцями дощ'],
+    codes: [61, 63, 65, 66, 67, 80, 81, 82], 
+    icon: RainIcon,
+    label: 'Дощ'
+  },
+  'snow': {
+    keywords: ['snow', 'snowy', 'sleet', 'freezing', 'wintery', 'blizzard', 'сніг', 'снігопад'],
+    codes: [71, 73, 75, 77, 85, 86], 
+    icon: SnowIcon,
+    label: 'Сніг'
+  },
+  'thunderstorm': {
+    keywords: ['thunder', 'thunderstorm', 'lightning', 'storm', 'electric', 'гроза', 'блискавка'],
+    codes: [95, 96, 99],
+    icon: ThunderstormIcon,
+    label: 'Гроза'
   }
 };
 
 function getWeatherIcon(description) {
   if (!description) return { icon: CloudyIcon, label: 'Хмарно' };
+  
+  if (typeof description === 'number') {
+    for (const [type, config] of Object.entries(weatherIconMap)) {
+      if (config.codes && config.codes.includes(description)) {
+        return { icon: config.icon, label: config.label };
+      }
+    }
+    return { icon: CloudyIcon, label: 'Хмарно' }; // Default
+  }
   
   const lowerDescription = description.toLowerCase();
  
@@ -82,7 +98,7 @@ function HourlyForecast({ city, selectedDay }) {
   const [error, setError] = useState('');
 
   const fetchHourlyForecast = async () => {
-    if (!city) return;
+    if (!city || !selectedDay) return;
   
     setLoading(true);
     setError('');
@@ -97,7 +113,6 @@ function HourlyForecast({ city, selectedDay }) {
       
       const data = await response.json();
       
-      // Змініть логіку фільтрації
       const filteredHourlyData = data.filter(hour => {
         const hourDate = new Date(hour.time);
         const selectedDate = new Date(selectedDay.date);
@@ -124,11 +139,12 @@ function HourlyForecast({ city, selectedDay }) {
 
   if (loading) return <Typography>Завантаження...</Typography>;
   if (error) return <Typography color="error">{error}</Typography>;
+  if (hourlyForecast.length === 0) return <Typography>Немає даних на цей день</Typography>;
 
   return (
     <Grid item xs={12} sx={{ mt: 2 }}>
       <Typography variant="h6" sx={{ mb: 2 }}>
-        Погодинний прогноз
+        Погодинний прогноз на {new Date(selectedDay.date).toLocaleDateString('uk-UA')}
       </Typography>
       <Box sx={{ 
         display: 'flex', 
@@ -137,7 +153,13 @@ function HourlyForecast({ city, selectedDay }) {
         pb: 2 
       }}>
         {hourlyForecast.map((hour, index) => {
-          const { icon: HourIcon, label } = getWeatherIcon(hour.description);
+          const weatherCode = hour.weatherCode || hour.condition;
+          const weatherDescription = hour.description;
+          
+          const { icon: HourIcon, label } = getWeatherIcon(
+            typeof weatherCode === 'number' ? weatherCode : weatherDescription
+          );
+          
           const time = new Date(hour.time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
 
           return (
@@ -153,8 +175,9 @@ function HourlyForecast({ city, selectedDay }) {
             >
               <Typography variant="subtitle2">{time}</Typography>
               <HourIcon color="action" sx={{ my: 1 }} />
-    <Typography>{Math.round(hour.temperature)}°C</Typography>
-    <Typography variant="caption">{label}</Typography>
+              <Typography>{Math.round(hour.temperature)}°C</Typography>
+              <Typography variant="caption">{label}</Typography>
+              <Typography variant="caption">Вітер: {hour.windSpeed} км/год</Typography>
             </Paper>
           );
         })}

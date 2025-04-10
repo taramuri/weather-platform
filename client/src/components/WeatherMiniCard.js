@@ -17,7 +17,54 @@ import {
   FilterDrama as FogIcon
 } from '@mui/icons-material';
 
-// Enhanced and more comprehensive mapping of weather conditions to icons
+// Мепінг кодів погоди Open-Meteo до іконок
+const weatherCodeToIcon = {
+  // Ясно
+  0: { icon: SunnyIcon, label: 'Ясно' },
+  1: { icon: SunnyIcon, label: 'Переважно ясно' },
+  
+  // Хмарно
+  2: { icon: PartlyCloudyIcon, label: 'Мінлива хмарність' },
+  3: { icon: CloudyIcon, label: 'Хмарно' },
+  
+  // Туман
+  45: { icon: FogIcon, label: 'Туман' },
+  48: { icon: FogIcon, label: 'Іній' },
+  
+  // Мряка
+  51: { icon: DrizzleIcon, label: 'Слабка мряка' },
+  53: { icon: DrizzleIcon, label: 'Помірна мряка' },
+  55: { icon: DrizzleIcon, label: 'Сильна мряка' },
+  56: { icon: DrizzleIcon, label: 'Слабка морозна мряка' },
+  57: { icon: DrizzleIcon, label: 'Сильна морозна мряка' },
+  
+  // Дощ
+  61: { icon: DrizzleIcon, label: 'Слабкий дощ' },
+  63: { icon: RainIcon, label: 'Помірний дощ' },
+  65: { icon: RainIcon, label: 'Сильний дощ' },
+  66: { icon: RainIcon, label: 'Слабкий крижаний дощ' },
+  67: { icon: RainIcon, label: 'Сильний крижаний дощ' },
+  
+  // Сніг
+  71: { icon: SnowIcon, label: 'Слабкий сніг' },
+  73: { icon: SnowIcon, label: 'Помірний сніг' },
+  75: { icon: SnowIcon, label: 'Сильний сніг' },
+  77: { icon: SnowIcon, label: 'Снігова крупа' },
+  
+  // Зливи
+  80: { icon: RainIcon, label: 'Слабкі зливи' },
+  81: { icon: RainIcon, label: 'Помірні зливи' },
+  82: { icon: RainIcon, label: 'Сильні зливи' },
+  85: { icon: SnowIcon, label: 'Слабкий сніг' },
+  86: { icon: SnowIcon, label: 'Сильний сніг' },
+  
+  // Гроза
+  95: { icon: ThunderstormIcon, label: 'Гроза' },
+  96: { icon: ThunderstormIcon, label: 'Гроза зі слабким градом' },
+  99: { icon: ThunderstormIcon, label: 'Гроза з сильним градом' },
+};
+
+// Резервний мепінг на основі текстових описів (на випадок, якщо код погоди недоступний)
 const weatherIconMap = {
   'sunny': {
     keywords: ['clear', 'sunny', 'sun', 'fair', 'bright', 'ясно', 'сонячно'],
@@ -61,26 +108,33 @@ const weatherIconMap = {
   }
 };
 
-function getWeatherIcon(description) {
-  if (!description) return { icon: CloudyIcon, label: 'Хмарно' };
+function getWeatherIcon(conditionData) {
+  // Спочатку перевіряємо, чи є conditionData числовим кодом (від Open-Meteo)
+  if (typeof conditionData === 'number' && weatherCodeToIcon[conditionData]) {
+    return weatherCodeToIcon[conditionData];
+  }
   
-  // Convert description to lowercase for case-insensitive matching
-  const lowerDescription = description.toLowerCase();
- 
-  // Detailed matching process
-  for (const [type, config] of Object.entries(weatherIconMap)) {
-    // Check for exact matches first
-    if (lowerDescription === type) {
-      return { icon: config.icon, label: config.label };
-    }
+  // Якщо conditionData - це рядок (текстовий опис)
+  if (typeof conditionData === 'string') {
+    const lowerDescription = conditionData.toLowerCase();
     
-    // Then check for keyword matches
-    if (config.keywords.some(keyword => lowerDescription.includes(keyword))) {
-      return { icon: config.icon, label: config.label };
+    // Перевіряємо на наявність ключових слів
+    for (const [type, config] of Object.entries(weatherIconMap)) {
+      if (config.keywords.some(keyword => lowerDescription.includes(keyword))) {
+        return { icon: config.icon, label: config.label };
+      }
     }
   }
- 
-  // Default to cloudy if no match found
+  
+  // Якщо це рядок id іконки з Open-Meteo API (sunny, partly_cloudy, тощо)
+  if (typeof conditionData === 'string' && weatherIconMap[conditionData]) {
+    return {
+      icon: weatherIconMap[conditionData].icon,
+      label: weatherIconMap[conditionData].label
+    };
+  }
+  
+  // За замовчуванням
   return { icon: CloudyIcon, label: 'Хмарно' };
 }
 
@@ -92,6 +146,7 @@ function WeatherMiniCard({
   onClick,
   selected
 }) {
+  // Тепер condition може бути або числовим кодом, або текстовим описом
   const { icon: WeatherIcon, label } = getWeatherIcon(condition);
   
   return (

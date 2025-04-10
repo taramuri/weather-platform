@@ -5,8 +5,8 @@ const CityTranslation = require('../models/cityTranslation');
 
 require('dotenv').config();
 
-const API_KEY = process.env.WEATHERAPI_KEY || '3b76d28c262e4fb4ad8184330251503';
-const WEATHER_API_BASE_URL = 'https://api.weatherapi.com/v1';
+const OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1';
+const GEO_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 
 class WeatherServiceError extends Error {
   constructor(message, type) {
@@ -15,6 +15,37 @@ class WeatherServiceError extends Error {
     this.type = type;
   }
 }
+
+const weatherConditionMap = {
+  0: 'Ясно',
+  1: 'Переважно ясно',
+  2: 'Частково хмарно',
+  3: 'Хмарно',
+  45: 'Туман',
+  48: 'Іней',
+  51: 'Слабка мряка',
+  53: 'Помірна мряка',
+  55: 'Сильна мряка',
+  56: 'Слабка морозна мряка',
+  57: 'Сильна морозна мряка',
+  61: 'Слабкий дощ',
+  63: 'Помірний дощ',
+  65: 'Сильний дощ',
+  66: 'Слабкий крижаний дощ',
+  67: 'Сильний крижаний дощ',
+  71: 'Слабкий сніг',
+  73: 'Помірний сніг',
+  75: 'Сильний сніг',
+  77: 'Снігова крупа',
+  80: 'Слабкі зливи',
+  81: 'Помірні зливи',
+  82: 'Сильні зливи',
+  85: 'Слабкий сніг',
+  86: 'Сильний сніг',
+  95: 'Гроза',
+  96: 'Гроза зі слабким градом',
+  99: 'Гроза з сильним градом',
+};
 
 const weatherService = {
   async translateCityName(cityName) {
@@ -51,28 +82,63 @@ const weatherService = {
     }
   },
 
+  async getCoordinates(city) {
+    try {
+      const translatedCity = await this.translateCityName(city);
+      
+      const response = await axios.get(GEO_URL, {
+        params: {
+          name: translatedCity,
+          count: 1,
+          language: 'uk'
+        }
+      });
+      
+      if (!response.data.results || response.data.results.length === 0) {
+        throw new WeatherServiceError(`Місто "${city}" не знайдено. Перевірте правильність назви.`, 'CITY_NOT_FOUND');
+      }
+      
+      const location = response.data.results[0];
+      
+      return {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        name: location.name,
+        country: location.country
+      };
+    } catch (error) {
+      if (error.name === 'WeatherServiceError') {
+        throw error;
+      }
+      console.error('Geocoding error:', error);
+      throw new WeatherServiceError('Не вдалося знайти координати міста', 'GEOCODING_ERROR');
+    }
+  },
+
   async getCurrentWeather(city) {
     try {
       if (!city) {
         throw new WeatherServiceError('Назва міста не вказана', 'CITY_NOT_PROVIDED');
       }
 
-      const translatedCity = await this.translateCityName(city);
+      const location = await this.getCoordinates(city);
       
-      const response = await axios.get(`${WEATHER_API_BASE_URL}/current.json`, {
+      const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
         params: {
-          key: API_KEY,
-          q: translatedCity,
-          lang: 'uk'
+          latitude: location.latitude,
+          longitude: location.longitude,
+          current: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m',
+          timezone: 'auto'
         }
       });
       
-      const { current, location } = response.data;
+      const { current } = response.data;
+      
       return {
-        temperature: current.temp_c,
-        humidity: current.humidity,
-        description: current.condition.text,
-        windSpeed: current.wind_kph,
+        temperature: current.temperature_2m,
+        humidity: current.relative_humidity_2m,
+        description: weatherConditionMap[current.weather_code] || 'Невідомо',
+        windSpeed: current.wind_speed_10m,
         city: location.name,
         country: location.country
       };
@@ -81,28 +147,8 @@ const weatherService = {
         throw error;
       }
 
-      if (error.response) {
-        switch (error.response.status) {
-          case 400:
-            throw new WeatherServiceError('Невірний запит. Перевірте назву міста.', 'INVALID_REQUEST');
-          case 401:
-            throw new WeatherServiceError('Помилка авторизації. Перевірте API ключ.', 'AUTHORIZATION_ERROR');
-          case 403:
-            throw new WeatherServiceError('Доступ заборонено. Перевірте права доступу.', 'ACCESS_DENIED');
-          case 404:
-            throw new WeatherServiceError(`Місто "${city}" не знайдено. Перевірте правильність назви.`, 'CITY_NOT_FOUND');
-          case 429:
-            throw new WeatherServiceError('Перевищено ліміт запитів. Спробуйте пізніше.', 'RATE_LIMIT_EXCEEDED');
-          case 500:
-            throw new WeatherServiceError('Внутрішня помилка сервера. Спробуйте пізніше.', 'SERVER_ERROR');
-          default:
-            throw new WeatherServiceError('Невідома помилка при отриманні погоди', 'UNKNOWN_ERROR');
-        }
-      } else if (error.request) {
-        throw new WeatherServiceError('Немає відповіді від сервера. Перевірте підключення до інтернету.', 'NO_RESPONSE');
-      } else {
-        throw new WeatherServiceError('Помилка налаштування запиту', 'REQUEST_SETUP_ERROR');
-      }
+      console.error('Current weather error:', error);
+      throw new WeatherServiceError('Помилка отримання погоди', 'WEATHER_ERROR');
     }
   },
   
@@ -112,28 +158,29 @@ const weatherService = {
         throw new WeatherServiceError('Назва міста не вказана', 'CITY_NOT_PROVIDED');
       }
 
-      const translatedCity = await this.translateCityName(city);
+      const location = await this.getCoordinates(city);
       
-      const response = await axios.get(`${WEATHER_API_BASE_URL}/forecast.json`, {
+      const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
         params: {
-          key: API_KEY,
-          q: translatedCity,
-          days: 7,
-          lang: 'uk'
+          latitude: location.latitude,
+          longitude: location.longitude,
+          daily: 'weather_code,temperature_2m_max,temperature_2m_min,temperature_2m_mean,relative_humidity_2m_mean,wind_speed_10m_max',
+          timezone: 'auto',
+          forecast_days: 7
         }
       });
       
-      const { forecast } = response.data;
+      const { daily } = response.data;
       
-      const forecastData = forecast.forecastday.map(day => ({
-        date: new Date(day.date),
-        temperature: day.day.avgtemp_c,
-        minTemperature: day.day.mintemp_c,  
-        maxTemperature: day.day.maxtemp_c,  
-        humidity: day.day.avghumidity,
-        description: day.day.condition.text,
-        windSpeed: day.day.maxwind_kph,
-        condition: day.day.condition.code 
+      const forecastData = daily.time.map((date, index) => ({
+        date: new Date(date),
+        temperature: daily.temperature_2m_mean[index],
+        minTemperature: daily.temperature_2m_min[index],
+        maxTemperature: daily.temperature_2m_max[index],
+        humidity: daily.relative_humidity_2m_mean[index],
+        description: weatherConditionMap[daily.weather_code[index]] || 'Невідомо',
+        windSpeed: daily.wind_speed_10m_max[index],
+        condition: daily.weather_code[index]
       }));
       
       return forecastData;
@@ -142,24 +189,8 @@ const weatherService = {
         throw error;
       }
 
-      if (error.response) {
-        switch (error.response.status) {
-          case 400:
-            throw new WeatherServiceError('Невірний запит прогнозу. Перевірте назву міста.', 'INVALID_REQUEST');
-          case 404:
-            throw new WeatherServiceError(`Місто "${city}" не знайдено. Перевірте правильність назви.`, 'CITY_NOT_FOUND');
-          case 429:
-            throw new WeatherServiceError('Перевищено ліміт запитів. Спробуйте пізніше.', 'RATE_LIMIT_EXCEEDED');
-          case 500:
-            throw new WeatherServiceError('Внутрішня помилка сервера. Спробуйте пізніше.', 'SERVER_ERROR');
-          default:
-            throw new WeatherServiceError('Невідома помилка при отриманні прогнозу', 'UNKNOWN_ERROR');
-        }
-      } else if (error.request) {
-        throw new WeatherServiceError('Немає відповіді від сервера. Перевірте підключення до інтернету.', 'NO_RESPONSE');
-      } else {
-        throw new WeatherServiceError('Помилка налаштування запиту прогнозу', 'REQUEST_SETUP_ERROR');
-      }
+      console.error('Forecast error:', error);
+      throw new WeatherServiceError('Помилка отримання прогнозу погоди', 'FORECAST_ERROR');
     }
   },
   
@@ -169,37 +200,37 @@ const weatherService = {
         throw new WeatherServiceError('Назва міста не вказана', 'CITY_NOT_PROVIDED');
       }
   
-      const translatedCity = await this.translateCityName(city);
+      const location = await this.getCoordinates(city);
       
-      const response = await axios.get(`${WEATHER_API_BASE_URL}/forecast.json`, {
+      const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
         params: {
-          key: API_KEY,
-          q: translatedCity,
-          days: 7, 
-          lang: 'uk'
+          latitude: location.latitude,
+          longitude: location.longitude,
+          hourly: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m',
+          timezone: 'auto',
+          forecast_days: 7
         }
       });
       
+      const { hourly } = response.data;
       const hourlyData = [];
       
-      response.data.forecast.forecastday.forEach(day => {
-        const forecastDate = new Date(day.date);
+      for (let i = 0; i < hourly.time.length; i++) {
+        const hourTime = new Date(hourly.time[i]);
         
-        day.hour.filter(hourForecast => {
-          const hourTime = new Date(hourForecast.time);
-          return hourTime.getHours() % 3 === 0;
-        }).forEach(hourForecast => {
+        // Вибираємо лише кожні 3 години
+        if (hourTime.getHours() % 3 === 0) {
           hourlyData.push({
-            time: new Date(hourForecast.time),
-            date: forecastDate,
-            temperature: hourForecast.temp_c,
-            description: hourForecast.condition.text,
-            windSpeed: hourForecast.wind_kph,
-            humidity: hourForecast.humidity,
-            icon: hourForecast.condition.icon
+            time: hourTime,
+            date: new Date(hourTime.toDateString()),
+            temperature: hourly.temperature_2m[i],
+            description: weatherConditionMap[hourly.weather_code[i]] || 'Невідомо',
+            windSpeed: hourly.wind_speed_10m[i],
+            humidity: hourly.relative_humidity_2m[i],
+            icon: this.getWeatherIcon(hourly.weather_code[i])
           });
-        });
-      });
+        }
+      }
   
       hourlyData.sort((a, b) => a.time - b.time);
       
@@ -209,42 +240,71 @@ const weatherService = {
         throw error;
       }
   
-      if (error.response) {
-        switch (error.response.status) {
-          case 400:
-            throw new WeatherServiceError('Невірний запит погодинного прогнозу', 'INVALID_REQUEST');
-          case 404:
-            throw new WeatherServiceError(`Місто не знайдено`, 'CITY_NOT_FOUND');
-          case 429:
-            throw new WeatherServiceError('Перевищено ліміт запитів', 'RATE_LIMIT_EXCEEDED');
-          case 500:
-            throw new WeatherServiceError('Внутрішня помилка сервера', 'SERVER_ERROR');
-          default:
-            throw new WeatherServiceError('Невідома помилка при отриманні погодинного прогнозу', 'UNKNOWN_ERROR');
-        }
-      } else if (error.request) {
-        throw new WeatherServiceError('Немає відповіді від сервера', 'NO_RESPONSE');
-      } else {
-        throw new WeatherServiceError('Помилка налаштування запиту', 'REQUEST_SETUP_ERROR');
-      }
+      console.error('Hourly forecast error:', error);
+      throw new WeatherServiceError('Помилка отримання погодинного прогнозу', 'HOURLY_FORECAST_ERROR');
     }
   },
 
-async getLocationByCoordinates(latitude, longitude) {
-  try {
-    const response = await axios.get(`${WEATHER_API_BASE_URL}/search.json`, {
-      params: {
-        key: API_KEY,
-        q: `${latitude},${longitude}`
+  async getLocationByCoordinates(latitude, longitude) {
+    try {
+      const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
+      const response = await axios.get(NOMINATIM_URL, {
+        params: {
+          lat: latitude,
+          lon: longitude,
+          format: 'json',
+          'accept-language': 'uk',
+          zoom: 18, 
+          addressdetails: 1
+        },
+        headers: {
+          'User-Agent': 'WeatherApp/1.0'
+        }
+      });
+      
+      if (!response.data || !response.data.address) {
+        throw new WeatherServiceError('Місто не знайдено за вказаними координатами', 'LOCATION_NOT_FOUND');
       }
-    });
-
-    return response.data[0].name;
-  } catch (error) {
-    console.error('Помилка визначення міста за координатами:', error);
-    throw new WeatherServiceError('Не вдалося визначити місто', 'GEOLOCATION_ERROR');
+      
+      const location = response.data.address;
+      
+      let cityName = location.city || location.town || location.village || 
+                    location.hamlet || location.suburb || location.county || 
+                    location.state;
+      
+      
+      if (cityName) {
+        cityName = cityName.replace(/місто|село|громада|міська|селищна|сільська|район|область/gi, '').trim();
+        
+        const parts = cityName.split(' ');
+        if (parts.length > 1 && parts[0].length > 2) {
+          cityName = parts[0];
+        }
+      } else {
+        cityName = "Київ"; 
+      }
+      
+      return cityName;
+    } catch (error) {
+      console.error('Помилка визначення міста за координатами:', error);
+      return "Київ"; 
+    }
+  },
+  
+  getWeatherIcon(code) {
+    // Тут можна додати логіку для вибору іконок на основі коду погоди
+    // Це заглушка, яку можна розширити
+    if (code === 0 || code === 1) return 'sunny';
+    if (code >= 2 && code <= 3) return 'partly_cloudy';
+    if (code >= 45 && code <= 48) return 'foggy';
+    if (code >= 51 && code <= 67) return 'rainy';
+    if (code >= 71 && code <= 77) return 'snow';
+    if (code >= 80 && code <= 82) return 'rainy';
+    if (code >= 85 && code <= 86) return 'snow';
+    if (code >= 95 && code <= 99) return 'thunderstorm';
+    
+    return 'cloudy';
   }
-}
 };
 
 module.exports = weatherService;
