@@ -1,121 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Container, 
-  Grid, 
-  Paper, 
-  Typography, 
-  TextField,
-  Button,
-  Box,
-  CircularProgress,
-  IconButton,
-  Tooltip
+  Box, 
+  Tabs,
+  Tab
 } from '@mui/material';
-import { LocationOn as LocationIcon } from '@mui/icons-material';
-import WeatherMiniCard from '../components/WeatherMiniCard';
-import HourlyForecast from '../components/HourlyForecast';
+import TodayForecast from '../components/forecast/TodayForecast';
+import HourlyForecast from '../components/forecast/HourlyForecast';
+import TenDayForecast from '../components/forecast/TenDayForecast';
+import MonthlyForecast from '../components/forecast/MonthlyForecast';
+import WeatherRadar from '../components/WeatherRadar';
+import AirQualityDetails from '../components/details/AirQualityDetails';
 
-const dayNameMap = {
-  'monday': 'Понеділок',
-  'tuesday': 'Вівторок',
-  'wednesday': 'Середа',
-  'thursday': 'Четвер',
-  'friday': "П'ятниця",
-  'saturday': 'Субота',
-  'sunday': 'Неділя'
-};
-
-const getLocalizedDayName = (dateString) => {
-  const date = new Date(dateString);
-  const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-  return dayNameMap[dayName] || dayName;
-};
-
-const getWeatherCondition = (code) => {
-  if (typeof code === 'number') {
-    if (code === 0 || code === 1) return 'sunny'; 
-    if (code === 2 || code === 3) return 'partly_cloudy'; 
-    if (code >= 45 && code <= 48) return 'cloudy'; 
-    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rainy'; 
-    if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return 'snow';
-    if (code >= 95 && code <= 99) return 'thunderstorm'; 
-    return 'cloudy'; 
-  } 
-  
-  
-  if (!code) return 'cloudy';
-  
-  const lowerDescription = code.toLowerCase();
-  
-  const conditions = {
-    sunny: ['clear', 'sunny', 'sun', 'ясно'],
-    cloudy: ['cloudy', 'cloud', 'overcast', 'хмарно'],
-    rainy: ['rain', 'rainy', 'shower', 'drizzle', 'дощ'],
-    thunderstorm: ['thunder', 'thunderstorm', 'lightning', 'гроза'],
-    snow: ['snow', 'snowy', 'sleet', 'сніг'],
-    partly_cloudy: ['partly cloudy', 'few clouds', 'частково хмарно']
-  };
-
-  for (const [condition, keywords] of Object.entries(conditions)) {
-    if (keywords.some(keyword => lowerDescription.includes(keyword))) {
-      return condition;
-    }
-  }
-  
-  return 'cloudy';
-};
-
-function Dashboard() {
-  const [city, setCity] = useState('Київ');
-  const [inputCity, setInputCity] = useState('Київ');
-  const [originalCityName, setOriginalCityName] = useState('Київ'); 
+function Dashboard({ city, setLoading }) {
+  const [activeTab, setActiveTab] = useState(0);
   const [currentWeather, setCurrentWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [airQuality, setAirQuality] = useState(null);
   const [error, setError] = useState('');
-  const [selectedDay, setSelectedDay] = useState(null);
-
-  const detectLocation = () => {
-    if ('geolocation' in navigator) {
-      setLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          try {
-            const response = await fetch(`http://localhost:5000/api/weather/location?lat=${latitude}&lon=${longitude}`);
-            const data = await response.json();
-            
-            if (data.city) {
-              setCity(data.city);
-              setInputCity(data.city);
-              await fetchWeatherData(data.city);
-            }
-          } catch (error) {
-            console.error('Помилка отримання міста:', error);
-            setError('Не вдалося визначити місто за поточним місцерозташуванням');
-          } finally {
-            setLoading(false);
-          }
-        },
-        (error) => {
-          console.error('Помилка геолокації:', error);
-          setError('Не вдалося отримати геолокацію');
-          setLoading(false);
-        }
-      );
-    } else {
-      setError('Геолокація не підтримується вашим браузером');
-    }
-  };
-
+  
+  // Функція для отримання даних про погоду
   const fetchWeatherData = async (cityToFetch = city) => {
     if (!cityToFetch) return;
     
-    setOriginalCityName(cityToFetch);
     setLoading(true);
     setError('');
     
     try {
+      // Запит на поточну погоду
       const weatherResponse = await fetch(`http://localhost:5000/api/weather/current/${cityToFetch}`);
       
       if (!weatherResponse.ok) {
@@ -125,6 +37,7 @@ function Dashboard() {
       
       const weatherData = await weatherResponse.json();
       
+      // Запит на прогноз погоди
       const forecastResponse = await fetch(`http://localhost:5000/api/weather/forecast/${cityToFetch}`);
       
       if (!forecastResponse.ok) {
@@ -134,12 +47,25 @@ function Dashboard() {
       
       const forecastData = await forecastResponse.json();
       
+      const airQualityResponse = await fetch(`http://localhost:5000/api/weather/air-quality/${cityToFetch}`);
+    
+      let airQualityData = null;
+      if (airQualityResponse.ok) {
+        airQualityData = await airQualityResponse.json();
+      } else {
+        console.warn(`Помилка отримання даних про якість повітря: ${airQualityResponse.status} ${airQualityResponse.statusText}`);
+        // Можливо запит на дані про якість повітря з Open-Meteo також повертає помилку
+        try {
+          const errorData = await airQualityResponse.json();
+          console.error('Деталі помилки:', errorData);
+        } catch (e) {
+          console.error('Не вдалося розпарсити відповідь помилки');
+        }
+      }
+      
       setCurrentWeather(weatherData);
       setForecast(forecastData);
-      
-      setSelectedDay(forecastData[0]);
-      
-      setCity(cityToFetch);
+      setAirQuality(airQualityData);
     } catch (err) {
       console.error('Помилка:', err);
       setError(err.message || 'Помилка отримання даних погоди');
@@ -148,99 +74,52 @@ function Dashboard() {
     }
   };
 
+  // Завантаження даних при першому рендері або зміні міста
   useEffect(() => {
     fetchWeatherData();
-  }, []);
+  }, [city]);
+  
+  // Обробник зміни вкладки
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Paper sx={{ 
-            p: 2, 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 2 
-          }}>
-            <Tooltip title="Визначити поточне місце">
-              <IconButton 
-                color="primary" 
-                onClick={detectLocation}
-                disabled={loading}
-                sx={{ 
-                  mr: 1, 
-                  flexShrink: 0 
-                }}
-              >
-                <LocationIcon />
-              </IconButton>
-            </Tooltip>
-            <TextField
-              label="Введіть місто"
-              value={inputCity}
-              onChange={(e) => setInputCity(e.target.value)}
-              fullWidth
-              sx={{ flexGrow: 1 }}
-            />
-            <Button 
-              variant="contained" 
-              onClick={() => {
-                setCity(inputCity);
-                fetchWeatherData(inputCity);
-              }}
-              disabled={loading}
-              sx={{ flexShrink: 0 }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Пошук'}
-            </Button>
-          </Paper>
-        </Grid>
+    <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
+      {/* Основні вкладки */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <Tabs 
+          value={activeTab} 
+          onChange={handleTabChange} 
+          aria-label="weather tabs"
+          variant="fullWidth"
+        >
+          <Tab label="Сьогодні" />
+          <Tab label="Погодинно" />
+          <Tab label="День 10" />
+          <Tab label="Щомісяця" />
+          <Tab label="Радар" />
+          <Tab label="Якість повітря" />
+        </Tabs>
+      </Box>
 
-        {error && (
-          <Grid item xs={12}>
-            <Paper sx={{ p: 2, bgcolor: 'error.light' }}>
-              <Typography color="error">{error}</Typography>
-            </Paper>
-          </Grid>
-        )}
-
-        {/* Прогноз на тиждень */}
-        {forecast.length > 0 && (
-          <Grid item xs={12}>
-            <Typography variant="h5" sx={{ my: 2 }}>
-              Прогноз на тиждень
-            </Typography>
-            <Box sx={{ 
-              display: 'flex', 
-              overflowX: 'auto', 
-              gap: 2, 
-              pb: 2 
-            }}>
-              {forecast.slice(0, 7).map((day, index) => (
-                <WeatherMiniCard 
-                  key={index}
-                  date={getLocalizedDayName(day.date)}
-                  minTemp={Math.round(day.minTemperature)}
-                  maxTemp={Math.round(day.maxTemperature)}
-                  condition={getWeatherCondition(day.description)}
-                  onClick={() => setSelectedDay(day)}
-                  selected={selectedDay === day}
-                />
-              ))}
-            </Box>
-          </Grid>
-        )}
-      </Grid>
-
-      {/* Погодинний прогноз для обраного дня */}
-      {city && selectedDay && (
-        <HourlyForecast 
-          city={city} 
-          selectedDay={selectedDay} 
-        />
+      {/* Відображення вмісту активної вкладки */}
+      {activeTab === 0 && (
+          <TodayForecast 
+            currentWeather={currentWeather} 
+            forecast={forecast} 
+            city={city} 
+            airQuality={airQuality} 
+            onTabChange={setActiveTab}
+          />
       )}
+      {activeTab === 1 && <HourlyForecast city={city} onTabChange={setActiveTab} />}
+      {activeTab === 2 && <TenDayForecast city={city} />}
+      {activeTab === 3 && <MonthlyForecast city={city} />}
+      {activeTab === 4 && <WeatherRadar city={city} />}
+      {activeTab === 5 && <AirQualityDetails city={city} airQuality={airQuality} />}
     </Container>
   );
 }
 
-export default Dashboard;
+export default Dashboard; 

@@ -120,7 +120,7 @@ const weatherService = {
       if (!city) {
         throw new WeatherServiceError('Назва міста не вказана', 'CITY_NOT_PROVIDED');
       }
-
+  
       const location = await this.getCoordinates(city);
       
       const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
@@ -128,27 +128,117 @@ const weatherService = {
           latitude: location.latitude,
           longitude: location.longitude,
           current: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m',
+          daily: 'temperature_2m_max,temperature_2m_min,sunrise,sunset',
+          timezone: 'auto'
+        }
+      });
+      
+      const { current, daily } = response.data;
+            
+      const todayData = {
+        maxTemperature: daily.temperature_2m_max[0],
+        minTemperature: daily.temperature_2m_min[0]
+      };
+      
+      // Створюємо об'єкти Date для сходу і заходу сонця
+      if (daily.sunrise && daily.sunrise[0]) {
+        todayData.sunrise = new Date(daily.sunrise[0]);
+      }
+      
+      if (daily.sunset && daily.sunset[0]) {
+        todayData.sunset = new Date(daily.sunset[0]);
+      }
+      
+      const weatherData = {
+        temperature: current.temperature_2m,
+        humidity: current.relative_humidity_2m,
+        description: weatherConditionMap[current.weather_code] || 'Невідомо',
+        windSpeed: current.wind_speed_10m,
+        city: location.name,
+        country: location.country,
+        maxTemperature: todayData.maxTemperature,
+        minTemperature: todayData.minTemperature
+      };
+      
+      if (todayData.sunrise) weatherData.sunrise = todayData.sunrise;
+      if (todayData.sunset) weatherData.sunset = todayData.sunset;
+           
+      return weatherData;
+    } catch (error) {
+      if (error.name === 'WeatherServiceError') {
+        throw error;
+      }
+  
+      console.error('Current weather error:', error);
+      throw new WeatherServiceError('Помилка отримання погоди', 'WEATHER_ERROR');
+    }
+  },
+
+  async getAirQuality(city) {
+    try {
+      if (!city) {
+        throw new WeatherServiceError('Назва міста не вказана', 'CITY_NOT_PROVIDED');
+      }
+  
+      const location = await this.getCoordinates(city);
+      
+      const response = await axios.get('https://air-quality-api.open-meteo.com/v1/air-quality', {
+        params: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          current: 'european_aqi,us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone',
           timezone: 'auto'
         }
       });
       
       const { current } = response.data;
       
+      const europeanAQI = current.european_aqi;
+      
+      let quality, description, color;
+      
+      if (europeanAQI <= 20) {
+        quality = 'Відмінно';
+        description = 'Якість повітря вважається відмінною. Забруднення повітря не становить ризику для здоров\'я.';
+        color = '#50F0E6'; // Блакитний
+      } else if (europeanAQI <= 40) {
+        quality = 'Добре';
+        description = 'Якість повітря вважається задовільною. Забруднення повітря становить незначний ризик або жодного ризику взагалі.';
+        color = '#50CCAA'; // Зелений
+      } else if (europeanAQI <= 60) {
+        quality = 'Помірно';
+        description = 'Якість повітря прийнятна, але деякі забруднювачі можуть становити незначну загрозу для дуже невеликої кількості людей, які особливо чутливі до забруднення повітря.';
+        color = '#F0E641'; // Жовтий
+      } else if (europeanAQI <= 80) {
+        quality = 'Посередньо';
+        description = 'Члени чутливих груп можуть відчувати проблеми зі здоров\'ям. Широкий загал ще не буде відчувати впливу.';
+        color = '#FF5050'; // Оранжевий
+      } else if (europeanAQI <= 100) {
+        quality = 'Погано';
+        description = 'Кожен може почати відчувати проблеми зі здоров\'ям. Члени чутливих груп можуть відчувати більш серйозні проблеми зі здоров\'ям.';
+        color = '#960032'; // Червоний
+      } else {
+        quality = 'Дуже погано';
+        description = 'Тривожний рівень для всього населення. Серйозний ризик для здоров\'я, рекомендується вжити запобіжних заходів.';
+        color = '#7D2181'; // Фіолетовий
+      }
+      
       return {
-        temperature: current.temperature_2m,
-        humidity: current.relative_humidity_2m,
-        description: weatherConditionMap[current.weather_code] || 'Невідомо',
-        windSpeed: current.wind_speed_10m,
-        city: location.name,
-        country: location.country
+        index: europeanAQI,
+        quality,
+        description,
+        color,
+        details: {
+          pm10: current.pm10,
+          pm2_5: current.pm2_5,
+          carbon_monoxide: current.carbon_monoxide,
+          nitrogen_dioxide: current.nitrogen_dioxide,
+          sulphur_dioxide: current.sulphur_dioxide,
+          ozone: current.ozone
+        }
       };
     } catch (error) {
-      if (error.name === 'WeatherServiceError') {
-        throw error;
-      }
-
-      console.error('Current weather error:', error);
-      throw new WeatherServiceError('Помилка отримання погоди', 'WEATHER_ERROR');
+      console.error('Air quality error:', error.response || error);
     }
   },
   
@@ -202,11 +292,12 @@ const weatherService = {
   
       const location = await this.getCoordinates(city);
       
+      // Оновлений запит з додатковими параметрами
       const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
         params: {
           latitude: location.latitude,
           longitude: location.longitude,
-          hourly: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m',
+          hourly: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,precipitation_probability,precipitation,cloudcover,uv_index',
           timezone: 'auto',
           forecast_days: 7
         }
@@ -218,18 +309,25 @@ const weatherService = {
       for (let i = 0; i < hourly.time.length; i++) {
         const hourTime = new Date(hourly.time[i]);
         
-        // Вибираємо лише кожні 3 години
-        if (hourTime.getHours() % 3 === 0) {
-          hourlyData.push({
-            time: hourTime,
-            date: new Date(hourTime.toDateString()),
-            temperature: hourly.temperature_2m[i],
-            description: weatherConditionMap[hourly.weather_code[i]] || 'Невідомо',
-            windSpeed: hourly.wind_speed_10m[i],
-            humidity: hourly.relative_humidity_2m[i],
-            icon: this.getWeatherIcon(hourly.weather_code[i])
-          });
-        }
+        const windDirection = this.getWindDirectionText(hourly.wind_direction_10m[i]);
+        
+        const uvIndexValue = hourly.uv_index ? Math.round(hourly.uv_index[i]) : 1;
+        const uvIndexFormatted = `${uvIndexValue} з 11`;
+        
+        hourlyData.push({
+          time: hourTime,
+          date: new Date(hourTime.toDateString()),
+          temperature: hourly.temperature_2m[i],
+          description: weatherConditionMap[hourly.weather_code[i]] || 'Невідомо',
+          windSpeed: hourly.wind_speed_10m[i],
+          windDirection: windDirection,
+          humidity: hourly.relative_humidity_2m[i],
+          icon: this.getWeatherIcon(hourly.weather_code[i]),
+          precipProbability: hourly.precipitation_probability ? hourly.precipitation_probability[i] : 0,
+          rainAmount: hourly.precipitation ? hourly.precipitation[i] : 0,
+          cloudiness: hourly.cloudcover ? hourly.cloudcover[i] : 95,
+          uvIndex: uvIndexFormatted
+        });
       }
   
       hourlyData.sort((a, b) => a.time - b.time);
@@ -243,6 +341,37 @@ const weatherService = {
       console.error('Hourly forecast error:', error);
       throw new WeatherServiceError('Помилка отримання погодинного прогнозу', 'HOURLY_FORECAST_ERROR');
     }
+  },
+  
+  getWindDirectionText(degrees) {
+    if (degrees === null || degrees === undefined) return 'Невідомо';
+    
+    // Таблиця напрямків вітру (8 основних напрямків)
+    const directions = [
+      { min: 337.5, max: 22.5, text: 'Пн' },    // 0/360 градусів - північ
+      { min: 22.5, max: 67.5, text: 'Пн-Сх' },  // 45 градусів - північний схід
+      { min: 67.5, max: 112.5, text: 'Сх' },    // 90 градусів - схід
+      { min: 112.5, max: 157.5, text: 'Пд-Сх' },// 135 градусів - південний схід
+      { min: 157.5, max: 202.5, text: 'Пд' },   // 180 градусів - південь
+      { min: 202.5, max: 247.5, text: 'Пд-Зх' },// 225 градусів - південний захід
+      { min: 247.5, max: 292.5, text: 'Зх' },   // 270 градусів - захід
+      { min: 292.5, max: 337.5, text: 'Пн-Зх' } // 315 градусів - північний захід
+    ];
+    
+    const normalizedDegrees = degrees % 360;
+    
+    for (const direction of directions) {
+      if (direction.min > direction.max) {
+        if (normalizedDegrees >= direction.min || normalizedDegrees <= direction.max) {
+          return direction.text;
+        }
+      } 
+      else if (normalizedDegrees >= direction.min && normalizedDegrees < direction.max) {
+        return direction.text;
+      }
+    }
+    
+    return 'Невідомо';
   },
 
   async getLocationByCoordinates(latitude, longitude) {
@@ -292,8 +421,7 @@ const weatherService = {
   },
   
   getWeatherIcon(code) {
-    // Тут можна додати логіку для вибору іконок на основі коду погоди
-    // Це заглушка, яку можна розширити
+    //  додати логіку для вибору іконок на основі коду погоди
     if (code === 0 || code === 1) return 'sunny';
     if (code >= 2 && code <= 3) return 'partly_cloudy';
     if (code >= 45 && code <= 48) return 'foggy';

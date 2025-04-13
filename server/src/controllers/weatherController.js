@@ -1,4 +1,5 @@
 const weatherService = require('../services/weatherService');
+const pollutantService = require('../services/pollutantService');
 
 const weatherController = {
   async getCurrentWeather(req, res) {
@@ -48,7 +49,31 @@ const weatherController = {
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
-  }
+  },
+    async getAirQuality(req, res) {
+      try {
+        const { city } = req.params;       
+        const airQualityData = await weatherService.getAirQuality(city);        
+        res.json(airQualityData);
+        
+      } catch (error) {
+        console.error('Air quality controller error:', error);
+        
+        const statusCode = error.name === 'WeatherServiceError' ? 400 : 500;
+        const message = error.message || 'Помилка отримання даних про якість повітря';
+        
+        res.status(statusCode).json({ error: message });
+    }
+  },
+  async getAllPollutants(req, res) {
+    try {
+      const pollutants = await pollutantService.getAllPollutants();
+      res.json(pollutants);
+    } catch (error) {
+      console.error('Error in pollutants endpoint:', error);
+      res.status(500).json({ error: 'Не вдалося отримати дані про забруднювачі' });
+    }
+}
 };
 
 module.exports = weatherController;

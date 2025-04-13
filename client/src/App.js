@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Layout/Navbar';
 import Dashboard from './pages/Dashboard';
@@ -19,16 +19,25 @@ const theme = createTheme({
 });
 
 function App() {
+  const [city, setCity] = useState('Київ');
+  const [loading, setLoading] = useState(false);
+
+  const handleCityChange = (newCity) => {
+    setLoading(true);
+    setCity(newCity);
+    // Завантаження закінчиться в компоненті Dashboard після отримання даних
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
         <div className="app">
-          <Navbar />
+          <Navbar onCityChange={handleCityChange} loading={loading} />
           <main className="main-content">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/weather" element={<WeatherAnalysis />} />
+              <Route path="/" element={<Dashboard city={city} setLoading={setLoading} />} />
+              <Route path="/weather" element={<WeatherAnalysis city={city} />} />
               <Route path="/agricultural" element={<AgriculturalData />} />
             </Routes>
           </main>
