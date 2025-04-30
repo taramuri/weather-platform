@@ -1,5 +1,4 @@
 const weatherService = require('../services/weatherService');
-const pollutantService = require('../services/pollutantService');
 
 const weatherController = {
   async getCurrentWeather(req, res) {
@@ -65,15 +64,26 @@ const weatherController = {
         res.status(statusCode).json({ error: message });
     }
   },
-  async getAllPollutants(req, res) {
+  async getExtendedForecast(req, res) {
     try {
-      const pollutants = await pollutantService.getAllPollutants();
-      res.json(pollutants);
+      const { city } = req.params;
+      
+      if (!city) {
+        return res.status(400).json({ error: 'Назва міста не вказана' });
+      }
+      
+      const forecastData = await weatherService.getExtendedForecast(city);
+      res.json(forecastData);
     } catch (error) {
-      console.error('Error in pollutants endpoint:', error);
-      res.status(500).json({ error: 'Не вдалося отримати дані про забруднювачі' });
+      console.error('Extended forecast error:', error);
+      
+      if (error.name === 'WeatherServiceError') {
+        return res.status(400).json({ error: error.message, type: error.type });
+      }
+      
+      res.status(500).json({ error: 'Помилка отримання розширеного прогнозу погоди' });
     }
-}
+  }
 };
 
 module.exports = weatherController;

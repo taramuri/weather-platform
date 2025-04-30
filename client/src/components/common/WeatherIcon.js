@@ -1,18 +1,21 @@
-// WeatherIcon.jsx
 import React from 'react';
 import { Box } from '@mui/material';
+import { getWeatherIcon, isNightTime } from '../utils/weatherUtils';
 
-function WeatherIcon({ condition, size = 64 }) {
-  const iconPath = `/icons/${condition}.svg`;
+function WeatherIcon({ condition, isNight = false, currentTime = null, sunrise = null, sunset = null, size = 64, sx = {} }) {
+  const isNightTimeCalculated = currentTime && sunrise && sunset 
+    ? isNightTime(currentTime, sunrise, sunset) 
+    : isNight;
+    
+  const iconName = getWeatherIcon(condition, isNightTimeCalculated, currentTime, sunrise, sunset);
+  const iconPath = `/icons/conditions/${iconName}.svg`;
+  
   return (
-    <Box component="img" 
-      src={iconPath} 
-      alt={condition}
-      sx={{ 
-        width: size, 
-        height: size,
-        filter: 'drop-shadow(0px 2px 5px rgba(0,0,0,0.2))'
-      }} 
+    <Box
+      component="img"
+      src={iconPath}
+      alt={typeof condition === 'string' ? condition : `Weather code: ${condition}`}
+      sx={{ width: size, height: size, ...sx }}
     />
   );
 }

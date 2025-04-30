@@ -247,14 +247,14 @@ const weatherService = {
       if (!city) {
         throw new WeatherServiceError('Назва міста не вказана', 'CITY_NOT_PROVIDED');
       }
-
+  
       const location = await this.getCoordinates(city);
       
       const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
         params: {
           latitude: location.latitude,
           longitude: location.longitude,
-          daily: 'weather_code,temperature_2m_max,temperature_2m_min,temperature_2m_mean,relative_humidity_2m_mean,wind_speed_10m_max',
+          daily: 'weather_code,temperature_2m_max,temperature_2m_min,temperature_2m_mean,relative_humidity_2m_mean,wind_speed_10m_max,precipitation_probability_max,sunrise,sunset,uv_index_max',
           timezone: 'auto',
           forecast_days: 7
         }
@@ -262,27 +262,41 @@ const weatherService = {
       
       const { daily } = response.data;
       
-      const forecastData = daily.time.map((date, index) => ({
-        date: new Date(date),
-        temperature: daily.temperature_2m_mean[index],
-        minTemperature: daily.temperature_2m_min[index],
-        maxTemperature: daily.temperature_2m_max[index],
-        humidity: daily.relative_humidity_2m_mean[index],
-        description: weatherConditionMap[daily.weather_code[index]] || 'Невідомо',
-        windSpeed: daily.wind_speed_10m_max[index],
-        condition: daily.weather_code[index]
-      }));
+      const forecastData = daily.time.map((date, index) => {
+        const currentDate = new Date(date);
+        const weekday = currentDate.toLocaleDateString('uk-UA', { weekday: 'short' });
+        const day = currentDate.getDate();
+        const dayLabel = `${weekday} ${day}`;
+        
+        return {
+          date: currentDate,
+          dayLabel: dayLabel,
+          temperature: daily.temperature_2m_mean[index],
+          minTemperature: daily.temperature_2m_min[index],
+          maxTemperature: daily.temperature_2m_max[index],
+          humidity: daily.relative_humidity_2m_mean[index],
+          description: weatherConditionMap[daily.weather_code[index]] || 'Невідомо',
+          windSpeed: daily.wind_speed_10m_max[index],
+          condition: daily.weather_code[index],
+          precipProbability: daily.precipitation_probability_max ? daily.precipitation_probability_max[index] : 0,
+          uvIndex: daily.uv_index_max ? `${Math.round(daily.uv_index_max[index])} з 11` : '5 з 11',
+          sunrise: daily.sunrise ? daily.sunrise[index] : null,
+          sunset: daily.sunset ? daily.sunset[index] : null,
+          moonPhase: this.getMoonPhase(currentDate)
+        };
+      });
       
       return forecastData;
     } catch (error) {
       if (error.name === 'WeatherServiceError') {
         throw error;
       }
-
+  
       console.error('Forecast error:', error);
       throw new WeatherServiceError('Помилка отримання прогнозу погоди', 'FORECAST_ERROR');
     }
   },
+  
   
   async getHourlyForecast(city) {
     try {
@@ -343,6 +357,140 @@ const weatherService = {
     }
   },
   
+  async getExtendedForecast(city) {
+    try {
+      if (!city) {
+        throw new WeatherServiceError('Назва міста не вказана', 'CITY_NOT_PROVIDED');
+      }
+  
+      const location = await this.getCoordinates(city);
+      
+      const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
+        params: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max',
+          hourly: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,precipitation_probability',
+          timezone: 'auto',
+          forecast_days: 10
+        }
+      });
+      
+      const { daily, hourly } = response.data;
+      const forecastData = [];
+      
+      for (let i = 0; i < daily.time.length; i++) {
+        const currentDate = new Date(daily.time[i]);
+        
+        const weekday = currentDate.toLocaleDateString('uk-UA', { weekday: 'short' });
+        const day = currentDate.getDate();
+        const dayLabel = `${weekday} ${day}`;
+        
+        const dayHours = hourly.time
+          .map((time, idx) => ({ 
+            time: new Date(time), 
+            data: {
+              temp: hourly.temperature_2m[idx],
+              humidity: hourly.relative_humidity_2m[idx],
+              code: hourly.weather_code[idx],
+              windSpeed: hourly.wind_speed_10m[idx],
+              windDir: hourly.wind_direction_10m[idx],
+              precip: hourly.precipitation_probability?.[idx] || 0
+            }
+          }))
+          .filter(h => h.time.toDateString() === currentDate.toDateString());
+        
+        const dayTimeHours = dayHours.filter(h => {
+          const hour = h.time.getHours();
+          return hour >= 9 && hour <= 18;
+        });
+        
+        const nightTimeHours = dayHours.filter(h => {
+          const hour = h.time.getHours();
+          return hour >= 21 || hour <= 6;
+        });
+        
+        const dayData = this.calculateAverages(dayTimeHours, i, daily);
+        
+        const nightData = this.calculateAverages(nightTimeHours, i, daily, true);
+        
+        forecastData.push({
+          date: currentDate,
+          dayLabel,
+          day: dayData,
+          night: nightData
+        });
+      }
+      
+      return forecastData;
+    } catch (error) {
+      if (error.name === 'WeatherServiceError') {
+        throw error;
+      }
+  
+      console.error('Extended forecast error:', error);
+      throw new WeatherServiceError('Помилка отримання розширеного прогнозу', 'FORECAST_ERROR');
+    }
+  },
+  
+  calculateAverages(hours, dailyIndex, dailyData, isNight = false) {
+    if (hours.length === 0) {
+      return {
+        temperature: isNight ? Math.round(dailyData.temperature_2m_min[dailyIndex]) : Math.round(dailyData.temperature_2m_max[dailyIndex]),
+        maxTemperature: Math.round(dailyData.temperature_2m_max[dailyIndex]),
+        minTemperature: Math.round(dailyData.temperature_2m_min[dailyIndex]),
+        humidity: isNight ? 57 : 41,
+        precipProbability: Math.round(dailyData.precipitation_probability_max?.[dailyIndex] || (isNight ? 3 : 2)),
+        windSpeed: 9,
+        windDirection: isNight ? 'Пд-Пд-Зх' : 'Пд-Зх',
+        weatherCode: isNight ? 3 : 1,
+        description: isNight ? 'Мінлива хмарність' : 'Малохмарно',
+        uvIndex: isNight ? '0 з 11' : (dailyData.uv_index_max ? `${Math.round(dailyData.uv_index_max[dailyIndex])} з 11` : '5 з 11'),
+        moonPhase: isNight ? this.getMoonPhase(new Date(dailyData.time[dailyIndex])) : null,
+        sunrise: !isNight ? dailyData.sunrise?.[dailyIndex] : null,
+        sunset: !isNight ? dailyData.sunset?.[dailyIndex] : null
+      };
+    }
+    
+    let totalTemp = 0, totalHumidity = 0, totalPrecip = 0;
+    let totalWindSpeed = 0, totalWindDir = 0;
+    const codeCounts = {};
+    
+    hours.forEach(h => {
+      totalTemp += h.data.temp;
+      totalHumidity += h.data.humidity;
+      totalPrecip += h.data.precip;
+      totalWindSpeed += h.data.windSpeed;
+      totalWindDir += h.data.windDir;
+      
+      codeCounts[h.data.code] = (codeCounts[h.data.code] || 0) + 1;
+    });
+    
+    let commonCode = 0, maxCount = 0;
+    for (const [code, count] of Object.entries(codeCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        commonCode = parseInt(code);
+      }
+    }
+    
+    return {
+      temperature: Math.round(totalTemp / hours.length),
+      maxTemperature: Math.round(dailyData.temperature_2m_max[dailyIndex]),
+      minTemperature: Math.round(dailyData.temperature_2m_min[dailyIndex]),
+      humidity: Math.round(totalHumidity / hours.length),
+      precipProbability: Math.round(totalPrecip / hours.length),
+      windSpeed: Math.round(totalWindSpeed / hours.length),
+      windDirection: this.getWindDirectionText(totalWindDir / hours.length),
+      weatherCode: commonCode,
+      description: weatherConditionMap[commonCode] || (isNight ? 'Мінлива хмарність' : 'Малохмарно'),
+      uvIndex: isNight ? '0 з 11' : (dailyData.uv_index_max ? `${Math.round(dailyData.uv_index_max[dailyIndex])} з 11` : '5 з 11'),
+      moonPhase: isNight ? this.getMoonPhase(new Date(dailyData.time[dailyIndex])) : null,
+      sunrise: !isNight ? dailyData.sunrise?.[dailyIndex] : null,
+      sunset: !isNight ? dailyData.sunset?.[dailyIndex] : null
+    };
+  },
+
   getWindDirectionText(degrees) {
     if (degrees === null || degrees === undefined) return 'Невідомо';
     
@@ -432,7 +580,27 @@ const weatherService = {
     if (code >= 95 && code <= 99) return 'thunderstorm';
     
     return 'cloudy';
+  },
+
+  getMoonPhase(date) {
+    const knownNewMoon = new Date(2000, 0, 6).getTime(); 
+    const daysSinceKnownNewMoon = (date.getTime() - knownNewMoon) / (1000 * 60 * 60 * 24);
+    
+    const moonCycle = 29.53;
+    
+    let phase = (daysSinceKnownNewMoon % moonCycle) / moonCycle;
+    if (phase < 0) phase += 1; // Normalize negative values
+    
+    if (phase < 0.025 || phase >= 0.975) return "Новий місяць";
+    else if (phase < 0.25) return "Молодий місяць";
+    else if (phase < 0.275) return "Перша чверть";
+    else if (phase < 0.475) return "Зростаючий місяць";
+    else if (phase < 0.525) return "Повний місяць";
+    else if (phase < 0.725) return "Спадаючий місяць";
+    else if (phase < 0.775) return "Остання чверть";
+    else return "Старий місяць";
   }
+
 };
 
 module.exports = weatherService;

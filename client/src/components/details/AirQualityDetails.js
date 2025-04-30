@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { capitalizeFirstLetter } from '../utils/weatherUtils';
 import { 
   Box, 
   Typography, 
@@ -156,7 +157,7 @@ function AirQualityDetails({ city, airQuality: initialAirQuality }) {
       {/* Заголовок та загальна інформація */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h5" gutterBottom>
-          Якість повітря у місті {city}
+          Якість повітря у місті {capitalizeFirstLetter(city)}
         </Typography>
         
         <Grid container spacing={2} sx={{ mt: 2 }}>

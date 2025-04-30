@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Paper, Typography, Grid, Button, Divider } from '@mui/material';
 import WeatherIcon from '../../common/WeatherIcon';
-import { getWeatherCondition } from '../../utils/weatherUtils';
+import { getWeatherIcon  } from '../../utils/weatherUtils';
 
 function HourlyForecastPreview({ hourlyData, hourlyLoading, hourlyError, onViewHourly }) {
   return (
@@ -36,7 +36,7 @@ function HourlyForecastPreview({ hourlyData, hourlyLoading, hourlyError, onViewH
                   </Typography>
                   
                   <WeatherIcon 
-                    condition={hour.icon || getWeatherCondition(hour.description)} 
+                    condition={hour.icon || getWeatherIcon (hour.description)} 
                     size={40} 
                   />
                   

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import WeatherIcon from '../common/WeatherIcon';
-import { getWeatherCondition } from '../utils/weatherUtils';
+import { getWeatherIcon  } from '../utils/weatherUtils';
+import { capitalizeFirstLetter } from '../utils/weatherUtils';
 
 function CurrentWeatherCard({ city, currentWeather }) {
   return (
@@ -17,7 +18,7 @@ function CurrentWeatherCard({ city, currentWeather }) {
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-            {city}, {currentWeather.country}
+            {capitalizeFirstLetter(city)}, {currentWeather.country}
           </Typography>
           <Typography variant="body1" sx={{ mb: 1 }}>
             Станом на {new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
@@ -31,7 +32,7 @@ function CurrentWeatherCard({ city, currentWeather }) {
           alignItems: 'center', 
           mr: 4 
         }}>
-          <WeatherIcon condition={getWeatherCondition(currentWeather.description)} size={100} />
+          <WeatherIcon condition={getWeatherIcon (currentWeather.description)} size={100} />
           <Typography variant="h1" sx={{ fontWeight: 'bold', ml: 2 }}>
             {Math.round(currentWeather.temperature)}°
           </Typography>

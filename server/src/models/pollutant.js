@@ -25,3 +25,4 @@ const pollutantSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('Pollutant', pollutantSchema);
+

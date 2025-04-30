@@ -1,8 +1,9 @@
 import React from 'react';
 import { Box, Typography, IconButton, Collapse, Divider } from '@mui/material';
-import { Add as AddIcon, Remove as RemoveIcon, Opacity as OpacityIcon, Air as WindIcon } from '@mui/icons-material';
+import { Add as AddIcon, Remove as RemoveIcon, Opacity as OpacityIcon, Air as WindIcon, WaterDrop as WaterDropIcon, Cloud as CloudIcon } from '@mui/icons-material';
 import WeatherIcon from '../../common/WeatherIcon';
 import WeatherDetails from '../../details/WeatherDetails';
+import { getWeatherIcon, isNightTime } from '../../utils/weatherUtils';
 
 function HourRow({ hourData, index, isLast, isExpanded, onToggle }) {
   return (
@@ -24,7 +25,13 @@ function HourRow({ hourData, index, isLast, isExpanded, onToggle }) {
         
         {/* Іконка погоди та опис */}
         <Box sx={{ width: '20%', display: 'flex', alignItems: 'center' }}>
-          <WeatherIcon condition={hourData.condition} size={40} />
+        <WeatherIcon 
+          condition={hourData.weatherCode || hourData.description} 
+          currentTime={hourData.time}
+          sunrise={hourData.sunrise}
+          sunset={hourData.sunset}
+          size={40}
+        />
           <Typography variant="body2" sx={{ ml: 1 }}>
             {hourData.description}
           </Typography>
@@ -46,7 +53,7 @@ function HourRow({ hourData, index, isLast, isExpanded, onToggle }) {
         
         {/* Вірогідність опадів */}
         <Box sx={{ width: '15%', display: 'flex', alignItems: 'center' }}>
-          <OpacityIcon sx={{ fontSize: 18, mr: 0.5, color: 'primary.main' }} />
+          <CloudIcon sx={{ fontSize: 18, mr: 0.5, color: 'primary.main' }} />
           <Typography variant="body2">
             {hourData.precipProbability}%
           </Typography>
@@ -62,6 +69,7 @@ function HourRow({ hourData, index, isLast, isExpanded, onToggle }) {
         
         {/* Вологість */}
         <Box sx={{ width: '10%', display: 'flex', alignItems: 'center' }}>
+          <WaterDropIcon sx={{ fontSize: 18, mr: 0.5, color: 'primary.main' }} />
           <Typography variant="body2">
             {hourData.humidity}%
           </Typography>

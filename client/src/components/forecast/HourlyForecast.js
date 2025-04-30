@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Container, Paper, Typography, Box } from '@mui/material';
 import { format } from 'date-fns';
 import { uk } from 'date-fns/locale';
-import DailyTabs from './hourly//DailyTabs';
+import DailyTabs from './hourly/DailyTabs';
 import HourlyForecastContent from './hourly/HourlyForecastContent';
-import { getWeatherCondition, capitalizeFirstLetter, formatDateToUkrainianFormat } from '../utils/weatherUtils';
+import { getWeatherIcon, capitalizeFirstLetter, formatDateToUkrainianFormat } from '../utils/weatherUtils';
 
 function HourlyForecast({ city, onTabChange }) {
   const [hourlyForecast, setHourlyForecast] = useState([]);
@@ -69,13 +69,13 @@ function HourlyForecast({ city, onTabChange }) {
             day: day,
             hour: hourDate.getHours(),
             temperature: hourData.temperature,
-            feelsLike: hourData.temperature - 1, // Припускаємо, що відчувається на 1 градус нижче якщо API не надає
+            feelsLike: hourData.temperature - Math.random(1,3),
             description: hourData.description,
             humidity: hourData.humidity,
             windSpeed: hourData.windSpeed,
             windDirection: hourData.windDirection || 'Пд', // Використовуємо реальні дані або значення за замовчуванням
             precipProbability: hourData.precipProbability || 0, // Використовуємо реальні дані або значення за замовчуванням
-            condition: hourData.icon || getWeatherCondition(hourData.description),
+            condition: hourData.icon || getWeatherIcon(hourData.description),
             uvIndex: hourData.uvIndex || '1 з 11', // Додаткова інформація
             cloudiness: hourData.cloudiness || 95, // Додаткова інформація
             rainAmount: hourData.rainAmount || 0 // Додаткова інформація
@@ -145,7 +145,7 @@ function HourlyForecast({ city, onTabChange }) {
     <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 3, borderRadius: 2, mb: 3 }}>
         <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-          Погодинний прогноз погоди - {city}
+          Погодинний прогноз погоди - {capitalizeFirstLetter(city)}
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
           Станом на {new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}

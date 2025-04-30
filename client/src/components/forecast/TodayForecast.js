@@ -47,7 +47,7 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
             return itemDateWithoutTime.getTime() === today.getTime() && 
                   itemDate.getHours() >= currentHour;
           })
-          .slice(0, 8); // Беремо тільки перші 8 годин
+          .slice(0, 8);
         
         setHourlyData(filteredData);
       } catch (err) {

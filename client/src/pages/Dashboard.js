@@ -96,7 +96,7 @@ function Dashboard({ city, setLoading }) {
         >
           <Tab label="Сьогодні" />
           <Tab label="Погодинно" />
-          <Tab label="День 10" />
+          <Tab label="10 Днів" />
           <Tab label="Щомісяця" />
           <Tab label="Радар" />
           <Tab label="Якість повітря" />
