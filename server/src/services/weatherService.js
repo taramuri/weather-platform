@@ -490,6 +490,91 @@ const weatherService = {
       sunset: !isNight ? dailyData.sunset?.[dailyIndex] : null
     };
   },
+  async getMonthlyForecast(city) {
+    try {
+      if (!city) {
+        throw new WeatherServiceError('Назва міста не вказана', 'CITY_NOT_PROVIDED');
+      }
+  
+      const location = await this.getCoordinates(city);
+      
+      const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
+        params: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          daily: 'weather_code,temperature_2m_max,temperature_2m_min,temperature_2m_mean,relative_humidity_2m_mean,wind_speed_10m_max,precipitation_probability_max,sunrise,sunset,uv_index_max',
+          timezone: 'auto',
+          forecast_days: 30
+        }
+      });
+      
+      const { daily } = response.data;
+      
+      const monthlyData = [];
+      
+      for (let i = 0; i < daily.time.length; i++) {
+        const currentDate = new Date(daily.time[i]);
+        const weekday = currentDate.toLocaleDateString('uk-UA', { weekday: 'short' });
+        const day = currentDate.getDate();
+        const dayLabel = `${weekday} ${day}`;
+        
+        const dayData = {
+          date: currentDate,
+          dayLabel,
+          temperature: daily.temperature_2m_mean[i],
+          minTemperature: daily.temperature_2m_min[i],
+          maxTemperature: daily.temperature_2m_max[i],
+          humidity: daily.relative_humidity_2m_mean[i],
+          description: weatherConditionMap[daily.weather_code[i]] || 'Невідомо',
+          windSpeed: daily.wind_speed_10m_max[i],
+          condition: daily.weather_code[i],
+          precipProbability: daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : 0,
+          uvIndex: daily.uv_index_max ? `${Math.round(daily.uv_index_max[i])} з 11` : '5 з 11',
+          sunrise: daily.sunrise ? daily.sunrise[i] : null,
+          sunset: daily.sunset ? daily.sunset[i] : null,
+          moonPhase: this.getMoonPhase(currentDate)
+        };
+        
+        monthlyData.push(dayData);
+      }
+      
+      // For days beyond the forecast limit, create placeholder data
+      // Get the current month's days count
+      const currentDate = new Date();
+      const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+      
+      // If forecast data doesn't cover the entire month, add placeholders
+      if (monthlyData.length < daysInMonth) {
+        const lastForecastDate = monthlyData.length > 0 
+          ? new Date(monthlyData[monthlyData.length - 1].date)
+          : new Date();
+          
+        for (let i = monthlyData.length + 1; i <= daysInMonth; i++) {
+          const placeholderDate = new Date(lastForecastDate);
+          placeholderDate.setDate(lastForecastDate.getDate() + (i - monthlyData.length));
+          
+          const weekday = placeholderDate.toLocaleDateString('uk-UA', { weekday: 'short' });
+          const day = placeholderDate.getDate();
+          const dayLabel = `${weekday} ${day}`;
+          
+          monthlyData.push({
+            date: placeholderDate,
+            dayLabel,
+            isPlaceholder: true
+          });
+        }
+      }
+      
+      return monthlyData;
+    } catch (error) {
+      if (error.name === 'WeatherServiceError') {
+        throw error;
+      }
+  
+      console.error('Monthly forecast error:', error);
+      throw new WeatherServiceError('Помилка отримання місячного прогнозу погоди', 'MONTHLY_FORECAST_ERROR');
+    }
+  },
 
   getWindDirectionText(degrees) {
     if (degrees === null || degrees === undefined) return 'Невідомо';

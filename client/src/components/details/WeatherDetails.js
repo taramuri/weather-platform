@@ -9,8 +9,11 @@ import {
   Opacity as OpacityIcon,
   WaterDrop as RainIcon
 } from '@mui/icons-material';
+import { useTemperature } from '../../context/TemperatureContext';
 
 function WeatherDetails({ hourData }) {
+  const { formatTemperature, getUnitSymbol } = useTemperature();
+
   return (
     <Box sx={{ 
       p: 1.5, 
@@ -24,7 +27,7 @@ function WeatherDetails({ hourData }) {
           <WeatherDetailCard 
             icon={<ThermostatIcon color="primary" sx={{ mr: 1 }} />}
             title="Відчувається як"
-            value={`${Math.round(hourData.feelsLike)}°`}
+            value={`${formatTemperature(Math.round(hourData.feelsLike))}${getUnitSymbol()}`}
           />
         </Grid>
         

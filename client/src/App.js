@@ -6,6 +6,7 @@ import WeatherAnalysis from './pages/WeatherAnalysis';
 import AgriculturalData from './pages/AgriculturalData';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
+import { TemperatureProvider } from './context/TemperatureContext';
 
 const theme = createTheme({
   palette: {
@@ -31,6 +32,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <TemperatureProvider>
       <Router>
         <div className="app">
           <Navbar onCityChange={handleCityChange} loading={loading} />
@@ -43,6 +45,7 @@ function App() {
           </main>
         </div>
       </Router>
+      </TemperatureProvider>
     </ThemeProvider>
   );
 }

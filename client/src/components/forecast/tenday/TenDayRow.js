@@ -3,9 +3,12 @@ import { Box, Typography, IconButton, Collapse, Divider } from '@mui/material';
 import { Add as AddIcon, Remove as RemoveIcon, Opacity as OpacityIcon, Air as WindIcon } from '@mui/icons-material';
 import WeatherIcon from '../../common/WeatherIcon';
 import DayForecastDetails from './DayForecastDetails';
-import { formatDateToUkrainianFormat, getWeatherIcon } from '../../utils/weatherUtils';
+import { formatDateToUkrainianFormat } from '../../utils/weatherUtils';
+import { useTemperature } from '../../../context/TemperatureContext';
 
 function TenDayRow({ day, index, isExpanded, onToggle, isLast }) {
+  const { formatTemperature, getUnitSymbol } = useTemperature();
+
   return (
     <>
       <Box display="flex" alignItems="center" p={2}>
@@ -23,13 +26,13 @@ function TenDayRow({ day, index, isExpanded, onToggle, isLast }) {
         <Box width="15%" display="flex" alignItems="center">
           <Box display="flex" alignItems="baseline">
             <Typography variant="body1" fontWeight="bold">
-              {day.day.maxTemperature}°
+              {formatTemperature(day.day.maxTemperature)}{getUnitSymbol()}
             </Typography>
             <Typography component="span" color="text.secondary" variant="body2">
               /
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {day.day.minTemperature}°
+              {formatTemperature(day.day.minTemperature)}{getUnitSymbol()}
             </Typography>
           </Box>
         </Box>

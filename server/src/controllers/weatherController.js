@@ -83,6 +83,20 @@ const weatherController = {
       
       res.status(500).json({ error: 'Помилка отримання розширеного прогнозу погоди' });
     }
+  },
+  async getMonthlyForecast(req, res) {
+    try {
+      const city = req.params.city;
+      const monthlyForecast = await weatherService.getMonthlyForecast(city);
+      res.json(monthlyForecast);
+    } catch (error) {
+      console.error('Monthly forecast route error:', error);
+      
+      const statusCode = error.type === 'CITY_NOT_PROVIDED' ? 400 : 500;
+      const errorMessage = error.message || 'Помилка отримання місячного прогнозу погоди';
+      
+      res.status(statusCode).json({ error: errorMessage });
+    }
   }
 };
 

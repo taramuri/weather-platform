@@ -1,10 +1,12 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import WeatherIcon from '../../common/WeatherIcon';
+import { useTemperature } from '../../../context/TemperatureContext';
 
 function WeatherSummary({ data, title }) {
   const isNightTime = title.toLowerCase().includes('ніч');
-  
+  const { formatTemperature, getUnitSymbol } = useTemperature();
+
   return (
     <>
       <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -13,7 +15,7 @@ function WeatherSummary({ data, title }) {
 
       <Box display="flex" alignItems="center" mb={2}>
         <Typography variant="h2" fontWeight="bold">
-          {data.temperature}°
+          {formatTemperature(data.temperature)}{getUnitSymbol()}
         </Typography>
         <WeatherIcon
             condition={data.weatherCode || data.description}
@@ -24,9 +26,6 @@ function WeatherSummary({ data, title }) {
 
       <Typography variant="body1" mb={1}>
         {data.description}. {title.includes('День') ? `Максимум ${data.maxTemperature}°C.` : `Мінімум ${data.minTemperature}°C.`}
-      </Typography>
-      <Typography variant="body1" mb={3}>
-        Вітер {data.windDirection} і змінний.
       </Typography>
     </>
   );

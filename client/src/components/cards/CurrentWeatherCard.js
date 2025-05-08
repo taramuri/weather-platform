@@ -3,8 +3,11 @@ import { Box, Paper, Typography } from '@mui/material';
 import WeatherIcon from '../common/WeatherIcon';
 import { getWeatherIcon  } from '../utils/weatherUtils';
 import { capitalizeFirstLetter } from '../utils/weatherUtils';
+import { useTemperature } from '../../context/TemperatureContext';
 
 function CurrentWeatherCard({ city, currentWeather }) {
+  const { formatTemperature, getUnitSymbol } = useTemperature();
+
   return (
     <Paper 
       elevation={3} 
@@ -32,18 +35,18 @@ function CurrentWeatherCard({ city, currentWeather }) {
           alignItems: 'center', 
           mr: 4 
         }}>
-          <WeatherIcon condition={getWeatherIcon (currentWeather.description)} size={100} />
+          <WeatherIcon condition={getWeatherIcon(currentWeather.description)} size={100} />
           <Typography variant="h1" sx={{ fontWeight: 'bold', ml: 2 }}>
-            {Math.round(currentWeather.temperature)}°
+            {formatTemperature(currentWeather.temperature)}{getUnitSymbol()}
           </Typography>
         </Box>
-        
+
         <Box>
           <Typography variant="h5">
             {currentWeather.description}
           </Typography>
           <Typography variant="h6">
-            Удень {Math.round(currentWeather.maxTemperature)}° • Ніч {Math.round(currentWeather.minTemperature)}°
+            Удень {formatTemperature(currentWeather.maxTemperature)}{getUnitSymbol()} • Ніч {formatTemperature(currentWeather.minTemperature)}{getUnitSymbol()}
           </Typography>
         </Box>
       </Box>
