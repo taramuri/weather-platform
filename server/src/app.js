@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const mongoose = require('mongoose');
 const weatherRoutes = require('./routes/weather');
+const weatherMapRoutes = require('./routes/weatherMapRoutes');
 require('dotenv').config();
 
 const app = express();
@@ -13,6 +15,8 @@ mongoose.connect(process.env.MONGODB_URI)
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/data', express.static(path.join(__dirname, 'public/data')));
 
 app.get('/', (req, res) => {
   res.send('Weather API Server is running');
@@ -20,6 +24,7 @@ app.get('/', (req, res) => {
 
 // Routes
 app.use('/api/weather', weatherRoutes);
+app.use('/api/weathermap', weatherMapRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

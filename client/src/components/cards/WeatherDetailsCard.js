@@ -7,9 +7,11 @@ import {
   Timeline as PressureIcon
 } from '@mui/icons-material';
 import { formatTimeFromISO } from '../utils/weatherUtils';
+import { useTemperature } from '../../context/TemperatureContext';
 
 function WeatherDetailsCard({ city, currentWeather }) {
-  // Отримуємо відформатований час
+
+  const { formatTemperature, getUnitSymbol } = useTemperature();
   const sunriseTime = formatTimeFromISO(currentWeather.sunrise);
   const sunsetTime = formatTimeFromISO(currentWeather.sunset);
   const sunriseSunsetTime = `${sunriseTime || '6:24'} / ${sunsetTime || '19:58'}`;
@@ -25,7 +27,7 @@ function WeatherDetailsCard({ city, currentWeather }) {
           Відчувається як
         </Typography>
         <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
-          {Math.round(currentWeather.temperature - 1)}°
+          {formatTemperature(Math.round(currentWeather.temperature - 1))}{getUnitSymbol()}
         </Typography>
       </Box>
       
@@ -61,7 +63,7 @@ function WeatherDetailsCard({ city, currentWeather }) {
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <PressureIcon sx={{ mr: 1 }} />
             <Typography variant="body2">
-              Точка роси: {Math.round(currentWeather.temperature - 5)}°
+              Точка роси: {formatTemperature(Math.round(currentWeather.temperature - 5))}{getUnitSymbol()}
             </Typography>
           </Box>
         </Grid>

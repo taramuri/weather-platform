@@ -1,8 +1,6 @@
-// TodayForecast.jsx
 import React, { useState, useEffect } from 'react';
 import { Grid, Box, Typography } from '@mui/material';
 
-// Імпортуємо створені компоненти
 import CurrentWeatherCard from '../cards/CurrentWeatherCard';
 import AirQualityCard from '../cards/AirQualityCard';
 import WeatherDetailsCard from '../cards/WeatherDetailsCard';
@@ -31,11 +29,9 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
         
         const data = await response.json();
         
-        // Фільтруємо тільки дані для сьогоднішнього дня
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        // Фільтруємо тільки найближчі години
         const currentHour = new Date().getHours();
         
         const filteredData = data
@@ -61,7 +57,6 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
     fetchHourlyData();
   }, [city]);
 
-  // Обробники подій для кнопок
   const handleViewHourlyForecast = () => {
     if (onTabChange) onTabChange(1);
   };
