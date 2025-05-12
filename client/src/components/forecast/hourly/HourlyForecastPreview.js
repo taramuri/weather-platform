@@ -1,9 +1,12 @@
 import React from 'react';
 import { Box, Paper, Typography, Grid, Button, Divider } from '@mui/material';
 import WeatherIcon from '../../common/WeatherIcon';
-import { getWeatherIcon  } from '../../utils/weatherUtils';
+import { getWeatherIcon } from '../../utils/weatherUtils';
+import { useTemperature } from '../../../context/TemperatureContext';
 
 function HourlyForecastPreview({ hourlyData, hourlyLoading, hourlyError, onViewHourly }) {
+  const { formatTemperature, getUnitSymbol } = useTemperature();
+  
   return (
     <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
@@ -36,12 +39,12 @@ function HourlyForecastPreview({ hourlyData, hourlyLoading, hourlyError, onViewH
                   </Typography>
                   
                   <WeatherIcon 
-                    condition={hour.icon || getWeatherIcon (hour.description)} 
+                    condition={hour.icon || getWeatherIcon(hour.description)} 
                     size={40} 
                   />
                   
                   <Typography variant="body1" sx={{ fontWeight: 'bold', mt: 1 }}>
-                    {Math.round(hour.temperature)}°
+                    {formatTemperature(hour.temperature)}{getUnitSymbol()}
                   </Typography>
                 </Box>
               </Grid>

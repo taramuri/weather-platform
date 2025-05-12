@@ -8,7 +8,9 @@ import {
   TextField,
   IconButton,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { 
@@ -17,9 +19,11 @@ import {
   Dashboard, 
   LocationOn as LocationIcon 
 } from '@mui/icons-material';
+import { useTemperature } from '../../context/TemperatureContext';
 
 function Navbar({ onCityChange, loading }) {
   const [inputCity, setInputCity] = useState('Київ');
+  const { units, toggleUnits } = useTemperature();
 
   // Функція для визначення поточного місцезнаходження
   const detectLocation = () => {
@@ -150,9 +154,18 @@ function Navbar({ onCityChange, loading }) {
         </Box>
         
         <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
-          <Typography variant="body1">
-            UA | °C
-          </Typography>
+          <FormControlLabel
+            control={
+              <Switch 
+                checked={units === 'fahrenheit'}
+                onChange={toggleUnits}
+                color="default"
+                size="small"
+              />
+            }
+            label={units === 'celsius' ? '°C' : '°F'}
+            sx={{ color: 'white' }}
+          />
         </Box>
       </Toolbar>
     </AppBar>

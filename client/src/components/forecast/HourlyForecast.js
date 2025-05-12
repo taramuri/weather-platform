@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Paper, Typography, Box } from '@mui/material';
-import { format } from 'date-fns';
-import { uk } from 'date-fns/locale';
+import { Container, Paper, Typography} from '@mui/material';
 import DailyTabs from './hourly/DailyTabs';
 import HourlyForecastContent from './hourly/HourlyForecastContent';
 import { getWeatherIcon, capitalizeFirstLetter, formatDateToUkrainianFormat } from '../utils/weatherUtils';

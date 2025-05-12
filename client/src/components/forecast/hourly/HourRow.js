@@ -1,11 +1,13 @@
 import React from 'react';
 import { Box, Typography, IconButton, Collapse, Divider } from '@mui/material';
-import { Add as AddIcon, Remove as RemoveIcon, Opacity as OpacityIcon, Air as WindIcon, WaterDrop as WaterDropIcon, Cloud as CloudIcon } from '@mui/icons-material';
+import { Add as AddIcon, Remove as RemoveIcon, Air as WindIcon, WaterDrop as WaterDropIcon, Cloud as CloudIcon } from '@mui/icons-material';
 import WeatherIcon from '../../common/WeatherIcon';
 import WeatherDetails from '../../details/WeatherDetails';
-import { getWeatherIcon, isNightTime } from '../../utils/weatherUtils';
+import { useTemperature } from '../../../context/TemperatureContext';
 
 function HourRow({ hourData, index, isLast, isExpanded, onToggle }) {
+  const { formatTemperature, getUnitSymbol } = useTemperature();
+
   return (
     <React.Fragment>
       <Box sx={{ 
@@ -40,14 +42,14 @@ function HourRow({ hourData, index, isLast, isExpanded, onToggle }) {
         {/* Температура */}
         <Box sx={{ width: '10%', textAlign: 'center' }}>
           <Typography variant="body1" fontWeight="bold">
-            {Math.round(hourData.temperature)}°
+            {formatTemperature(Math.round(hourData.temperature))}{getUnitSymbol()}
           </Typography>
         </Box>
         
         {/* Відчувається як */}
         <Box sx={{ width: '15%', display: 'flex', alignItems: 'center' }}>
           <Typography variant="body2">
-            Відчувається як {Math.round(hourData.feelsLike)}°
+            Відчувається як {formatTemperature(Math.round(hourData.feelsLike))}{getUnitSymbol()}
           </Typography>
         </Box>
         
