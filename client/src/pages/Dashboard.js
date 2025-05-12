@@ -9,8 +9,8 @@ import TodayForecast from '../components/forecast/TodayForecast';
 import HourlyForecast from '../components/forecast/HourlyForecast';
 import TenDayForecast from '../components/forecast/TenDayForecast';
 import MonthlyForecast from '../components/forecast/MonthlyForecast';
-import WeatherRadar from '../components/WeatherRadar';
 import AirQualityDetails from '../components/details/AirQualityDetails';
+import WeatherRadar from '../components/WeatherRadar';
 
 function Dashboard({ city, setLoading }) {
   const [activeTab, setActiveTab] = useState(0);
@@ -27,7 +27,6 @@ function Dashboard({ city, setLoading }) {
     setError('');
     
     try {
-      // Запит на поточну погоду
       const weatherResponse = await fetch(`http://localhost:5000/api/weather/current/${cityToFetch}`);
       
       if (!weatherResponse.ok) {
@@ -37,7 +36,6 @@ function Dashboard({ city, setLoading }) {
       
       const weatherData = await weatherResponse.json();
       
-      // Запит на прогноз погоди
       const forecastResponse = await fetch(`http://localhost:5000/api/weather/forecast/${cityToFetch}`);
       
       if (!forecastResponse.ok) {
@@ -54,7 +52,6 @@ function Dashboard({ city, setLoading }) {
         airQualityData = await airQualityResponse.json();
       } else {
         console.warn(`Помилка отримання даних про якість повітря: ${airQualityResponse.status} ${airQualityResponse.statusText}`);
-        // Можливо запит на дані про якість повітря з Open-Meteo також повертає помилку
         try {
           const errorData = await airQualityResponse.json();
           console.error('Деталі помилки:', errorData);
@@ -74,12 +71,10 @@ function Dashboard({ city, setLoading }) {
     }
   };
 
-  // Завантаження даних при першому рендері або зміні міста
   useEffect(() => {
     fetchWeatherData();
   }, [city]);
   
-  // Обробник зміни вкладки
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };

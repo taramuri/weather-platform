@@ -1,23 +1,53 @@
 const mongoose = require('mongoose');
 
 const cityTranslationSchema = new mongoose.Schema({
-  originalName: { 
-    type: String, 
+  originalName: {
+    type: String,
     required: true,
-    unique: true,
     trim: true,
-    lowercase: true
+    lowercase: true,
+    index: true
   },
-  translatedName: { 
-    type: String, 
+  
+  translatedName: {
+    type: String,
     required: true,
-    trim: true 
+    trim: true
   },
-  createdAt: {
+  
+  latitude: {
+    type: Number,
+    default: null
+  },
+  
+  longitude: {
+    type: Number,
+    default: null
+  },
+  
+  country: {
+    type: String,
+    default: 'Ukraine'
+  },
+  
+  updatedAt: {
     type: Date,
-    default: Date.now,
-    index: { expires: '90d' } 
+    default: Date.now
   }
+}, { timestamps: true });
+
+cityTranslationSchema.index({ originalName: 1 });
+
+cityTranslationSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  
+  if (!this.displayName && this.originalName) {
+    this.displayName = this.originalName.charAt(0).toUpperCase() + this.originalName.slice(1);
+  }
+  
+  next();
 });
 
-module.exports = mongoose.model('CityTranslation', cityTranslationSchema);
+const CityTranslation = mongoose.model('CityTranslation', cityTranslationSchema);
+
+module.exports = CityTranslation;

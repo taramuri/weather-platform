@@ -55,13 +55,20 @@ const weatherService = {
       }
       
       const normalizedCityName = cityName.trim().toLowerCase();
-      
-      const existingTranslation = await CityTranslation.findOne({ 
+            
+      let existingTranslation = await CityTranslation.findOne({ 
         originalName: normalizedCityName 
       });
       
+      if (!existingTranslation) {
+        console.log('Exact match not found, trying case-insensitive match');
+        existingTranslation = await CityTranslation.findOne({
+          originalName: { $regex: new RegExp(`^${normalizedCityName}$`, 'i') }
+        });
+      }
+      
       if (existingTranslation) {
-        return existingTranslation.translatedName;
+          return existingTranslation.translatedName;
       }
       
       const translationResult = await translate(cityName, { from: 'uk', to: 'en' });
@@ -69,7 +76,7 @@ const weatherService = {
       const translatedText = typeof translationResult === 'object' 
         ? translationResult.text 
         : translationResult;
-      
+            
       await CityTranslation.create({
         originalName: normalizedCityName,
         translatedName: translatedText
@@ -140,7 +147,6 @@ const weatherService = {
         minTemperature: daily.temperature_2m_min[0]
       };
       
-      // Створюємо об'єкти Date для сходу і заходу сонця
       if (daily.sunrise && daily.sunrise[0]) {
         todayData.sunrise = new Date(daily.sunrise[0]);
       }
@@ -306,7 +312,6 @@ const weatherService = {
   
       const location = await this.getCoordinates(city);
       
-      // Оновлений запит з додатковими параметрами
       const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
         params: {
           latitude: location.latitude,
@@ -538,12 +543,9 @@ const weatherService = {
         monthlyData.push(dayData);
       }
       
-      // For days beyond the forecast limit, create placeholder data
-      // Get the current month's days count
       const currentDate = new Date();
       const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
       
-      // If forecast data doesn't cover the entire month, add placeholders
       if (monthlyData.length < daysInMonth) {
         const lastForecastDate = monthlyData.length > 0 
           ? new Date(monthlyData[monthlyData.length - 1].date)
@@ -579,7 +581,6 @@ const weatherService = {
   getWindDirectionText(degrees) {
     if (degrees === null || degrees === undefined) return 'Невідомо';
     
-    // Таблиця напрямків вітру (8 основних напрямків)
     const directions = [
       { min: 337.5, max: 22.5, text: 'Пн' },    // 0/360 градусів - північ
       { min: 22.5, max: 67.5, text: 'Пн-Сх' },  // 45 градусів - північний схід
@@ -651,10 +652,9 @@ const weatherService = {
       console.error('Помилка визначення міста за координатами:', error);
       return "Київ"; 
     }
-  },
-  
+  },  
+
   getWeatherIcon(code) {
-    //  додати логіку для вибору іконок на основі коду погоди
     if (code === 0 || code === 1) return 'sunny';
     if (code >= 2 && code <= 3) return 'partly_cloudy';
     if (code >= 45 && code <= 48) return 'foggy';
@@ -674,7 +674,7 @@ const weatherService = {
     const moonCycle = 29.53;
     
     let phase = (daysSinceKnownNewMoon % moonCycle) / moonCycle;
-    if (phase < 0) phase += 1; // Normalize negative values
+    if (phase < 0) phase += 1; 
     
     if (phase < 0.025 || phase >= 0.975) return "Новий місяць";
     else if (phase < 0.25) return "Молодий місяць";

@@ -9,4 +9,5 @@ router.get('/location', weatherController.getLocationByCoordinates);
 router.get('/air-quality/:city', weatherController.getAirQuality);
 router.get('/extended-forecast/:city', weatherController.getExtendedForecast);
 router.get('/monthly-forecast/:city', weatherController.getMonthlyForecast);
+
 module.exports = router;

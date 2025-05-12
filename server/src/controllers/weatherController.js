@@ -1,4 +1,5 @@
 const weatherService = require('../services/weatherService');
+const weatherMapService = require('../services/weatherMapService');
 
 const weatherController = {
   async getCurrentWeather(req, res) {
