@@ -9,13 +9,6 @@ class WeatherMapServiceError extends Error {
   }
 }
 
-const UKRAINE_BOUNDS = {
-  north: 52.5, 
-  south: 44,
-  east: 40,
-  west: 22,
-};
-
 const GEO_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 
 const weatherMapService = {

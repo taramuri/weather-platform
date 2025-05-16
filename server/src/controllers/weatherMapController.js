@@ -5,8 +5,6 @@ exports.getWindyWidgetData = async (req, res) => {
     const city = req.params.city || 'Київ';
     const mapType = req.query.type || 'radar';
     
-    console.log(`Отримання даних для Windy віджета: місто=${city}, тип=${mapType}`);
-    
     const widgetData = await weatherMapService.getWindyWidgetData(city, mapType);
     
     res.json({
@@ -37,9 +35,7 @@ exports.getCityCoordinates = async (req, res) => {
         type: 'CITY_NOT_PROVIDED'
       });
     }
-    
-    console.log(`Отримання координат для міста: ${city}`);
-    
+        
     const coordinates = await weatherMapService.getCityCoordinates(city);
     
     res.json({
@@ -63,9 +59,7 @@ exports.getWindyWidgetHtml = async (req, res) => {
   try {
     const city = req.params.city || 'Київ';
     const mapType = req.query.type || 'radar';
-    
-    console.log(`Отримання HTML для Windy віджета: місто=${city}, тип=${mapType}`);
-    
+        
     const widgetData = await weatherMapService.getWindyWidgetData(city, mapType);
     
     res.setHeader('Content-Type', 'text/html');
@@ -139,8 +133,6 @@ exports.getWindyWidgetHtml = async (req, res) => {
 
 exports.getAllCities = async (req, res) => {
   try {
-    console.log('Отримання списку всіх міст');
-    
     const cities = await weatherMapService.getAllCities();
     
     res.json({

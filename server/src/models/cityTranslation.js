@@ -36,8 +36,6 @@ const cityTranslationSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-cityTranslationSchema.index({ originalName: 1 });
-
 cityTranslationSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   

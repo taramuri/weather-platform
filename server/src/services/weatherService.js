@@ -7,7 +7,6 @@ require('dotenv').config();
 
 const OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1';
 const GEO_URL = 'https://geocoding-api.open-meteo.com/v1/search';
-
 class WeatherServiceError extends Error {
   constructor(message, type) {
     super(message);
@@ -15,6 +14,17 @@ class WeatherServiceError extends Error {
     this.type = type;
   }
 }
+
+const safeString = (str, defaultValue = '') => {
+  if (str === null || str === undefined) return defaultValue;
+  return String(str);
+};
+
+const capitalizeString = (str, defaultValue = 'Невідомо') => {
+  if (!str) return defaultValue;
+  const safeStr = safeString(str);
+  return safeStr.charAt(0).toUpperCase() + safeStr.slice(1);
+};
 
 const weatherConditionMap = {
   0: 'Ясно',
@@ -50,75 +60,187 @@ const weatherConditionMap = {
 const weatherService = {
   async translateCityName(cityName) {
     try {
-      if (!/[а-яА-ЯіІїЇєЄґҐ]/.test(cityName)) {
-        return cityName;
+      if (!cityName) {
+        console.warn('Передано порожнє значення для перекладу назви міста');
+        return 'Kyiv';
       }
       
-      const normalizedCityName = cityName.trim().toLowerCase();
-            
-      let existingTranslation = await CityTranslation.findOne({ 
-        originalName: normalizedCityName 
-      });
+      const safeCityName = safeString(cityName).trim();
       
-      if (!existingTranslation) {
-        console.log('Exact match not found, trying case-insensitive match');
-        existingTranslation = await CityTranslation.findOne({
-          originalName: { $regex: new RegExp(`^${normalizedCityName}$`, 'i') }
+      if (!safeCityName) {
+        console.warn('Після очищення назва міста стала порожньою');
+        return 'Kyiv';
+      }
+      
+      if (!/[а-яА-ЯіІїЇєЄґҐ]/.test(safeCityName)) {
+        return safeCityName;
+      }
+      
+      const normalizedCityName = safeCityName.toLowerCase();
+            
+      try {
+        let existingTranslation = await CityTranslation.findOne({ 
+          originalName: normalizedCityName 
         });
+        
+        if (!existingTranslation) {
+          console.log('Точна відповідність не знайдена, шукаємо без урахування регістру');
+          existingTranslation = await CityTranslation.findOne({
+            originalName: { $regex: new RegExp(`^${normalizedCityName}$`, 'i') }
+          });
+        }
+        
+        if (existingTranslation) {
+          return existingTranslation.translatedName || safeCityName;
+        }
+      } catch (dbError) {
+        console.error('Помилка пошуку в базі даних:', dbError);
       }
       
-      if (existingTranslation) {
-          return existingTranslation.translatedName;
-      }
-      
-      const translationResult = await translate(cityName, { from: 'uk', to: 'en' });
-      
-      const translatedText = typeof translationResult === 'object' 
-        ? translationResult.text 
-        : translationResult;
+      try {
+        const translationResult = await translate(safeCityName, { from: 'uk', to: 'en' });
+        
+        const translatedText = typeof translationResult === 'object' 
+          ? (translationResult.text || safeCityName) 
+          : (translationResult || safeCityName);
+        
+        try {
+          const geoResponse = await axios.get(GEO_URL, {
+            params: {
+              name: translatedText,
+              count: 1
+            }
+          });
+          
+          if (!geoResponse.data.results || geoResponse.data.results.length === 0) {
+            console.warn(`Місто "${safeCityName}" (${translatedText}) не знайдено в геокодингу, запис не буде додано в базу даних`);
+            return translatedText;
+          }
+          
+          const location = geoResponse.data.results[0];
+          
+          try {
+            await CityTranslation.create({
+              originalName: normalizedCityName,
+              translatedName: translatedText,
+              displayName: capitalizeString(safeCityName),
+              latitude: location.latitude,
+              longitude: location.longitude,
+              country: location.country || 'Ukraine'
+            });
             
-      await CityTranslation.create({
-        originalName: normalizedCityName,
-        translatedName: translatedText
-      });
-      
-      return translatedText;
+            console.log(`Додано новий запис для міста ${safeCityName} (${translatedText}) з координатами`);
+          } catch (createError) {
+            console.error('Помилка при створенні запису в базі даних:', createError);
+          }
+          
+          return translatedText;
+        } catch (geoError) {
+          console.error('Помилка перевірки міста через геокодинг:', geoError);
+          return translatedText;
+        }
+      } catch (translationError) {
+        console.error('Помилка перекладу назви міста:', translationError);
+      }
     } catch (error) {
       console.error('Translation error:', error);
-      throw new WeatherServiceError('Не вдалося перекласти назву міста', 'TRANSLATION_ERROR');
+      return 'Kyiv';
     }
   },
 
   async getCoordinates(city) {
     try {
-      const translatedCity = await this.translateCityName(city);
-      
-      const response = await axios.get(GEO_URL, {
-        params: {
-          name: translatedCity,
-          count: 1,
-          language: 'uk'
-        }
-      });
-      
-      if (!response.data.results || response.data.results.length === 0) {
-        throw new WeatherServiceError(`Місто "${city}" не знайдено. Перевірте правильність назви.`, 'CITY_NOT_FOUND');
+      if (!city) {
+        throw new WeatherServiceError(`Назва міста не вказана`, 'CITY_NOT_PROVIDED');
       }
       
-      const location = response.data.results[0];
+      const safeCity = safeString(city).trim();
       
-      return {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        name: location.name,
-        country: location.country
-      };
+      if (!safeCity) {
+        throw new WeatherServiceError(`Назва міста не може бути порожньою`, 'CITY_NOT_PROVIDED');
+      }
+      
+      const translatedCity = await this.translateCityName(safeCity);
+      
+      try {
+        const response = await axios.get(GEO_URL, {
+          params: {
+            name: translatedCity,
+            count: 1,
+            language: 'uk'
+          }
+        });
+        
+        if (!response.data.results || response.data.results.length === 0) {
+          throw new WeatherServiceError(`Місто "${safeCity}" не знайдено. Перевірте правильність назви.`, 'CITY_NOT_FOUND');
+        }
+        
+        const location = response.data.results[0];
+        
+        const normalizedCityName = safeCity.toLowerCase();
+        
+        try {
+          let existingCity = await CityTranslation.findOne({ 
+            originalName: normalizedCityName 
+          });
+          
+          if (!existingCity) {
+            existingCity = await CityTranslation.findOne({
+              originalName: { $regex: new RegExp(`^${normalizedCityName}$`, 'i') }
+            });
+          }
+          
+          if (!existingCity) {
+            await CityTranslation.create({
+              originalName: normalizedCityName,
+              translatedName: translatedCity,
+              displayName: capitalizeString(safeCity),
+              latitude: location.latitude,
+              longitude: location.longitude,
+              country: location.country || 'Ukraine'
+            });
+            
+            console.log(`Додано новий запис для міста ${safeCity} з координатами`);
+          } else if (!existingCity.latitude || !existingCity.longitude) {
+            existingCity.latitude = location.latitude;
+            existingCity.longitude = location.longitude;
+            existingCity.country = location.country || 'Ukraine';
+            await existingCity.save();
+            
+            console.log(`Оновлено координати для міста ${safeCity}`);
+          }
+        } catch (dbError) {
+          console.error('Помилка роботи з базою даних:', dbError);
+        }
+        
+        return {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          name: location.name || safeCity,
+          country: location.country || 'Ukraine'
+        };
+      } catch (error) {
+        if (error.name === 'WeatherServiceError') {
+          throw error;
+        }
+        
+        if (error.response) {
+          console.error('Geocoding API error response:', error.response.status, error.response.data);
+          throw new WeatherServiceError(`Помилка геокодування: ${error.response.status}`, 'GEOCODING_ERROR');
+        } else if (error.request) {
+          console.error('Geocoding API no response:', error.request);
+          throw new WeatherServiceError('Не вдалося отримати відповідь від сервісу геокодування', 'GEOCODING_ERROR');
+        } else {
+          console.error('Geocoding error:', error.message);
+          throw new WeatherServiceError('Не вдалося знайти координати міста', 'GEOCODING_ERROR');
+        }
+      }
     } catch (error) {
       if (error.name === 'WeatherServiceError') {
         throw error;
       }
       console.error('Geocoding error:', error);
-      throw new WeatherServiceError('Не вдалося знайти координати міста', 'GEOCODING_ERROR');
+      throw new WeatherServiceError('Не вдалося знайти координати міста: ' + error.message, 'GEOCODING_ERROR');
     }
   },
 
@@ -130,53 +252,67 @@ const weatherService = {
   
       const location = await this.getCoordinates(city);
       
-      const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
-        params: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          current: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m',
-          daily: 'temperature_2m_max,temperature_2m_min,sunrise,sunset',
-          timezone: 'auto'
+      try {
+        const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
+          params: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            current: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m',
+            daily: 'temperature_2m_max,temperature_2m_min,sunrise,sunset',
+            timezone: 'auto'
+          }
+        });
+        
+        const { current, daily } = response.data;
+              
+        const todayData = {
+          maxTemperature: daily.temperature_2m_max[0],
+          minTemperature: daily.temperature_2m_min[0]
+        };
+        
+        if (daily.sunrise && daily.sunrise[0]) {
+          todayData.sunrise = new Date(daily.sunrise[0]);
         }
-      });
-      
-      const { current, daily } = response.data;
-            
-      const todayData = {
-        maxTemperature: daily.temperature_2m_max[0],
-        minTemperature: daily.temperature_2m_min[0]
-      };
-      
-      if (daily.sunrise && daily.sunrise[0]) {
-        todayData.sunrise = new Date(daily.sunrise[0]);
+        
+        if (daily.sunset && daily.sunset[0]) {
+          todayData.sunset = new Date(daily.sunset[0]);
+        }
+        
+        const weatherCode = current.weather_code !== undefined ? current.weather_code : 0;
+        
+        const weatherData = {
+          temperature: current.temperature_2m || 0,
+          humidity: current.relative_humidity_2m || 0,
+          description: weatherConditionMap[weatherCode] || 'Невідомо',
+          windSpeed: current.wind_speed_10m || 0,
+          city: location.name || city,
+          country: location.country || 'Ukraine',
+          maxTemperature: todayData.maxTemperature || 0,
+          minTemperature: todayData.minTemperature || 0
+        };
+        
+        if (todayData.sunrise) weatherData.sunrise = todayData.sunrise;
+        if (todayData.sunset) weatherData.sunset = todayData.sunset;
+             
+        return weatherData;
+      } catch (error) {
+        console.error('Weather API error:', error);
+        
+        if (error.response) {
+          throw new WeatherServiceError(`Помилка отримання погоди: ${error.response.status} - ${error.response.data?.reason || 'Невідома помилка'}`, 'WEATHER_ERROR');
+        } else if (error.request) {
+          throw new WeatherServiceError('Не вдалося отримати відповідь від сервісу погоди. Перевірте з\'єднання з інтернетом.', 'WEATHER_ERROR');
+        } else {
+          throw new WeatherServiceError('Помилка отримання погоди: ' + error.message, 'WEATHER_ERROR');
+        }
       }
-      
-      if (daily.sunset && daily.sunset[0]) {
-        todayData.sunset = new Date(daily.sunset[0]);
-      }
-      
-      const weatherData = {
-        temperature: current.temperature_2m,
-        humidity: current.relative_humidity_2m,
-        description: weatherConditionMap[current.weather_code] || 'Невідомо',
-        windSpeed: current.wind_speed_10m,
-        city: location.name,
-        country: location.country,
-        maxTemperature: todayData.maxTemperature,
-        minTemperature: todayData.minTemperature
-      };
-      
-      if (todayData.sunrise) weatherData.sunrise = todayData.sunrise;
-      if (todayData.sunset) weatherData.sunset = todayData.sunset;
-           
-      return weatherData;
     } catch (error) {
       if (error.name === 'WeatherServiceError') {
         throw error;
       }
   
       console.error('Current weather error:', error);
-      throw new WeatherServiceError('Помилка отримання погоди', 'WEATHER_ERROR');
+      throw new WeatherServiceError('Помилка отримання погоди: ' + error.message, 'WEATHER_ERROR');
     }
   },
 
@@ -668,24 +804,33 @@ const weatherService = {
   },
 
   getMoonPhase(date) {
-    const knownNewMoon = new Date(2000, 0, 6).getTime(); 
-    const daysSinceKnownNewMoon = (date.getTime() - knownNewMoon) / (1000 * 60 * 60 * 24);
-    
-    const moonCycle = 29.53;
-    
-    let phase = (daysSinceKnownNewMoon % moonCycle) / moonCycle;
-    if (phase < 0) phase += 1; 
-    
-    if (phase < 0.025 || phase >= 0.975) return "Новий місяць";
-    else if (phase < 0.25) return "Молодий місяць";
-    else if (phase < 0.275) return "Перша чверть";
-    else if (phase < 0.475) return "Зростаючий місяць";
-    else if (phase < 0.525) return "Повний місяць";
-    else if (phase < 0.725) return "Спадаючий місяць";
-    else if (phase < 0.775) return "Остання чверть";
-    else return "Старий місяць";
+    try {
+      if (!(date instanceof Date) || isNaN(date.getTime())) {
+        console.warn('Недійсна дата для розрахунку фази місяця:', date);
+        return "Невідомо";
+      }
+      
+      const knownNewMoon = new Date(2000, 0, 6).getTime(); 
+      const daysSinceKnownNewMoon = (date.getTime() - knownNewMoon) / (1000 * 60 * 60 * 24);
+      
+      const moonCycle = 29.53;
+      
+      let phase = (daysSinceKnownNewMoon % moonCycle) / moonCycle;
+      if (phase < 0) phase += 1; 
+      
+      if (phase < 0.025 || phase >= 0.975) return "Новий місяць";
+      else if (phase < 0.25) return "Молодий місяць";
+      else if (phase < 0.275) return "Перша чверть";
+      else if (phase < 0.475) return "Зростаючий місяць";
+      else if (phase < 0.525) return "Повний місяць";
+      else if (phase < 0.725) return "Спадаючий місяць";
+      else if (phase < 0.775) return "Остання чверть";
+      else return "Старий місяць";
+    } catch (error) {
+      console.error('Помилка розрахунку фази місяця:', error);
+      return "Невідомо";
+    }
   }
-
 };
 
 module.exports = weatherService;

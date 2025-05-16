@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Layout/Navbar';
 import Dashboard from './pages/Dashboard';
-import WeatherAnalysis from './pages/WeatherAnalysis';
+import Weather from './pages/Weather';
 import AgriculturalData from './pages/AgriculturalData';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
@@ -39,7 +39,7 @@ function App() {
           <main className="main-content">
             <Routes>
               <Route path="/" element={<Dashboard city={city} setLoading={setLoading} />} />
-              <Route path="/weather" element={<WeatherAnalysis city={city} />} />
+              <Route path="/weather" element={<Weather city={city} setLoading={setLoading}/>} />
               <Route path="/agricultural" element={<AgriculturalData />} />
             </Routes>
           </main>

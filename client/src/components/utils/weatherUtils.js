@@ -115,8 +115,15 @@ export const isNightTime = (currentTime = new Date(), sunrise, sunset) => {
   return checkTime < sunriseTime || checkTime > sunsetTime;
 };
 
-export const capitalizeFirstLetter = (string) => {
-  return string.charAt(0).toUpperCase() + string.slice(1);
+export const capitalizeFirstLetter = (string, defaultValue = 'Невідоме місто') => {
+  if (!string) return defaultValue;
+  
+  try {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  } catch (error) {
+    console.error('Помилка капіталізації тексту:', error);
+    return defaultValue;
+  }
 };
 
 export const formatDateToUkrainianFormat = (date) => {
@@ -134,5 +141,31 @@ export const formatTimeFromISO = (isoString) => {
   } catch (e) {
     console.error("Помилка форматування часу:", e);
     return null;
+  }
+};
+
+export const formatCityName = (city) => {
+  const DEFAULT_CITY = "Київ";
+  
+  if (!city) return DEFAULT_CITY;
+  
+  try {
+    return city.charAt(0).toUpperCase() + city.slice(1);
+  } catch (error) {
+    console.error('Помилка форматування назви міста:', error);
+    return DEFAULT_CITY;
+  }
+};
+
+export const getSafeCity = (city) => {
+  const DEFAULT_CITY = "київ";
+  
+  if (!city) return DEFAULT_CITY;
+  
+  try {
+    return city.toLowerCase();
+  } catch (error) {
+    console.error('Помилка отримання безпечного значення міста:', error);
+    return DEFAULT_CITY;
   }
 };
