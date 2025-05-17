@@ -7,6 +7,7 @@ import AgriculturalData from './pages/AgriculturalData';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
 import { TemperatureProvider } from './context/TemperatureContext';
+import MoistureRiskPage from './pages/MoistureRiskPage';
 
 const theme = createTheme({
   palette: {
@@ -40,7 +41,9 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard city={city} setLoading={setLoading} />} />
               <Route path="/weather" element={<Weather city={city} setLoading={setLoading}/>} />
-              <Route path="/agricultural" element={<AgriculturalData />} />
+              <Route path="/agricultural" element={<AgriculturalData city={city} setLoading={setLoading} />} />
+              <Route path="/agricultural/moisture-risk" element={<MoistureRiskPage city={city} />} />
+
             </Routes>
           </main>
         </div>

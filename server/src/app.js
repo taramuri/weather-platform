@@ -4,6 +4,8 @@ const path = require('path');
 const mongoose = require('mongoose');
 const weatherRoutes = require('./routes/weather');
 const weatherMapRoutes = require('./routes/weatherMapRoutes');
+const moistureRoutes = require('./routes/moistureRoutes');
+
 require('dotenv').config();
 
 const app = express();
@@ -24,6 +26,7 @@ app.get('/', (req, res) => {
 
 // Routes
 app.use('/api/weather', weatherRoutes);
+app.use('/api/moisture', moistureRoutes);
 app.use('/api/weathermap', weatherMapRoutes);
 
 app.listen(PORT, () => {
