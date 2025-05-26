@@ -1,13 +1,10 @@
-// moistureService.js - спрощений без Sentinel Hub
 const axios = require('axios');
 const weatherService = require('./weatherService');
 
 require('dotenv').config();
 
-// Базові URL для API
 const OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1';
 
-// Клас для помилок сервісу
 class MoistureServiceError extends Error {
   constructor(message, type) {
     super(message);
@@ -17,16 +14,10 @@ class MoistureServiceError extends Error {
 }
 
 const moistureService = {
-  /**
-   * Отримання даних про вологість ґрунту
-   * @param {Object} params - Параметри запиту (city або lat/lon)
-   * @returns {Promise<Object>} Дані про вологість
-   */
   async getMoistureData(params) {
     try {
       let coordinates;
       
-      // Визначаємо координати по місту або використовуємо прямі координати
       if (params.lat && params.lon) {
         coordinates = { latitude: params.lat, longitude: params.lon };
       } else if (params.city) {
@@ -36,7 +27,6 @@ const moistureService = {
         throw new MoistureServiceError('Необхідно вказати місто або координати', 'PARAMS_MISSING');
       }
       
-      // Отримуємо дані про погоду
       const weatherData = await this.fetchWeatherData(coordinates.latitude, coordinates.longitude);
       const moistureData = await this.processMoistureData(coordinates.latitude, coordinates.longitude, weatherData);
       
@@ -50,15 +40,8 @@ const moistureService = {
     }
   },
 
-  /**
-   * Отримання даних про погоду з Open-Meteo API
-   * @param {number} latitude - Широта
-   * @param {number} longitude - Довгота
-   * @returns {Promise<Object>} Дані про погоду
-   */
   async fetchWeatherData(latitude, longitude) {
     try {
-      console.log(`Запит даних погоди для координат [${latitude}, ${longitude}]...`);
       const response = await axios.get(`${OPEN_METEO_BASE_URL}/forecast`, {
         params: {
           latitude: latitude,
@@ -67,11 +50,10 @@ const moistureService = {
           hourly: 'temperature_2m,relative_humidity_2m,precipitation,precipitation_probability',
           timezone: 'auto',
           forecast_days: 10,
-          past_days: 30 // Отримуємо історичні дані за останні 30 днів
+          past_days: 30 
         }
       });
       
-      console.log(`Дані погоди успішно отримано для координат [${latitude}, ${longitude}]`);
       return response.data;
     } catch (error) {
       console.error('Помилка запиту даних про погоду:', error.message);
@@ -87,35 +69,24 @@ const moistureService = {
     }
   },
 
-  /**
-   * Обробка даних про погоду для визначення вологості ґрунту
-   * @param {number} latitude - Широта
-   * @param {number} longitude - Довгота
-   * @param {Object} weatherData - Дані про погоду
-   * @returns {Object} - Дані про вологість ґрунту
-   */
   async processMoistureData(latitude, longitude, weatherData) {
     try {
-      // Отримуємо дані про опади за останні 30 днів
       const pastDaysCount = 30;
       const totalDaysCount = weatherData.daily.time.length;
       const historicalStartIndex = Math.max(0, totalDaysCount - pastDaysCount - 1);
       const currentIndex = totalDaysCount - 1;
       
-      // Обчислюємо суму опадів за останні 30 днів
       let pastPrecipitationSum = 0;
       for (let i = historicalStartIndex; i < currentIndex; i++) {
         pastPrecipitationSum += weatherData.daily.precipitation_sum[i] || 0;
       }
       
-      // Обчислюємо суму евапотранспірації (випаровування) за останні 30 днів
       let pastEvapotranspirationSum = 0;
       if (weatherData.daily.et0_fao_evapotranspiration) {
         for (let i = historicalStartIndex; i < currentIndex; i++) {
           pastEvapotranspirationSum += weatherData.daily.et0_fao_evapotranspiration[i] || 0;
         }
       } else {
-        // Якщо дані про евапотранспірацію відсутні, оцінюємо на основі температури
         for (let i = historicalStartIndex; i < currentIndex; i++) {
           const avgTemp = (weatherData.daily.temperature_2m_max[i] + weatherData.daily.temperature_2m_min[i]) / 2;
           const estimatedET = 0.0023 * Math.max(0, avgTemp) * 1.5;
@@ -123,53 +94,41 @@ const moistureService = {
         }
       }
       
-      // Різниця між опадами та випаровуванням
       const moistureBalance = pastPrecipitationSum - pastEvapotranspirationSum;
       
-      // Визначаємо поточну вологість на основі балансу опадів та випаровування
-      let currentTopSoilMoisture = 50; // Середня вологість за замовчуванням
+      let currentTopSoilMoisture = 50; 
       
       if (moistureBalance > 50) {
-        // Дуже вологий ґрунт
         currentTopSoilMoisture = Math.min(95, 70 + moistureBalance / 10);
       } else if (moistureBalance > 20) {
-        // Вологий ґрунт
         currentTopSoilMoisture = 60 + moistureBalance / 5;
       } else if (moistureBalance > -20) {
-        // Нормальний ґрунт
         currentTopSoilMoisture = 50 + moistureBalance / 4;
       } else if (moistureBalance > -50) {
-        // Сухий ґрунт
         currentTopSoilMoisture = Math.max(20, 40 + moistureBalance / 3);
       } else {
-        // Дуже сухий ґрунт
         currentTopSoilMoisture = Math.max(5, 20 + moistureBalance / 5);
       }
       
-      // Оцінюємо історичну середню вологість
       const historicalTopSoilMoisture = await this.estimateHistoricalMoisture(latitude, longitude, weatherData);
       
-      // Обчислюємо різницю між поточною та історичною вологістю
       const topSoilMoistureDiff = currentTopSoilMoisture - historicalTopSoilMoisture;
       
-      // Визначаємо рівень ризику
       let riskLevel = 'normal';
       if (topSoilMoistureDiff < -20) {
-        riskLevel = 'high-dry'; // Високий ризик посухи
+        riskLevel = 'high-dry';
       } else if (topSoilMoistureDiff < -10) {
-        riskLevel = 'moderate-dry'; // Помірний ризик посухи
+        riskLevel = 'moderate-dry';
       } else if (topSoilMoistureDiff > 20) {
-        riskLevel = 'high-wet'; // Високий ризик перезволоження
+        riskLevel = 'high-wet'; 
       } else if (topSoilMoistureDiff > 10) {
-        riskLevel = 'moderate-wet'; // Помірний ризик перезволоження
+        riskLevel = 'moderate-wet'; 
       }
       
-      // Створюємо зони вологості для відображення на карті
       const riskZones = await this.generatePrecipitationBasedMoistureZones(
         latitude, longitude, weatherData, currentTopSoilMoisture, historicalTopSoilMoisture
       );
       
-      // Формуємо результат
       return {
         current_moisture: parseFloat(currentTopSoilMoisture.toFixed(1)),
         historical_average: parseFloat(historicalTopSoilMoisture.toFixed(1)),
@@ -187,13 +146,6 @@ const moistureService = {
     }
   },
 
-  /**
-   * Оцінка історичної вологості ґрунту
-   * @param {number} latitude - Широта
-   * @param {number} longitude - Довгота
-   * @param {Object} weatherData - Дані про погоду
-   * @returns {number} - Оцінка історичної вологості
-   */
   async estimateHistoricalMoisture(latitude, longitude, weatherData) {
     const pastDaysCount = 30;
     const totalDaysCount = weatherData.daily.time.length;
@@ -229,40 +181,23 @@ const moistureService = {
     
     let baseMoisture = 50;
     
-    // Коригування на основі широти (близькість до екватора)
-    const latitudeFactor = 1 - Math.abs(latitude) / 90; // 1 на екваторі, 0 на полюсах
+    const latitudeFactor = 1 - Math.abs(latitude) / 90; 
     
-    // Регіони ближче до екватора зазвичай мають більше опадів
     baseMoisture += latitudeFactor * 10;
     
-    // Коригування на основі середніх опадів
-    // ~3мм опадів на день вважається нормою (90мм на місяць)
     const precipitationFactor = avgDailyPrecipitation / 3;
     baseMoisture += (precipitationFactor - 1) * 15;
     
-    // Коригування на основі температури
-    // Висока температура = більше випаровування = менша вологість
-    const tempFactor = Math.max(0, avgTemperature - 15) / 10; // 15°C вважається нормою
+    const tempFactor = Math.max(0, avgTemperature - 15) / 10; 
     baseMoisture -= tempFactor * 5;
     
-    // Обмеження в діапазоні 30-70%
     return Math.min(70, Math.max(30, baseMoisture));
   },
 
-  /**
-   * Генерація зон вологості на основі даних про опади
-   * @param {number} latitude - Широта
-   * @param {number} longitude - Довгота
-   * @param {Object} weatherData - Дані про погоду
-   * @param {number} currentMoisture - Поточна вологість
-   * @param {number} historicalAverage - Історична середня вологість
-   * @returns {Object} - Зони вологості
-   */
   async generatePrecipitationBasedMoistureZones(latitude, longitude, weatherData, currentMoisture, historicalAverage) {
     try {
-      // Створюємо сітку точок навколо центральної координати
-      const gridSize = 5; // 5x5 сітка
-      const gridStep = 0.02; // Крок сітки (~2 км)
+      const gridSize = 5;
+      const gridStep = 0.02; 
       
       const grid = [];
       for (let latIdx = 0; latIdx < gridSize; latIdx++) {
@@ -277,19 +212,13 @@ const moistureService = {
         }
       }
       
-      // Отримуємо дані про опади для кожної точки сітки
-      // За замовчуванням припускаємо, що опади близькі до центральної точки
-      // Але додаємо варіації для більшої реалістичності
       const gridPrecipitation = grid.map(point => {
-        // Додаємо випадкову варіацію до опадів (±20%)
-        const variationFactor = 0.8 + Math.random() * 0.4; // 0.8-1.2
+        const variationFactor = 0.8 + Math.random() * 0.4; 
         
-        // Беремо сумарну кількість опадів за останні 7 днів з weatherData
         const pastDaysCount = 7;
         const totalDaysCount = weatherData.daily.time.length;
         const startIdx = Math.max(0, totalDaysCount - pastDaysCount);
         
-        // Сума опадів з урахуванням варіації для кожної точки
         let precipitation = 0;
         for (let i = startIdx; i < totalDaysCount; i++) {
           precipitation += (weatherData.daily.precipitation_sum[i] || 0) * variationFactor;
@@ -301,32 +230,23 @@ const moistureService = {
         };
       });
       
-      // Знаходимо середній рівень опадів для всієї сітки
       const avgPrecipitation = gridPrecipitation.reduce((sum, point) => sum + point.precipitation, 0) / gridPrecipitation.length;
       
-      // Визначаємо вологість для кожної точки на основі опадів
-      // та відносної вологості ґрунту
       const moistureDifference = currentMoisture - historicalAverage;
       
       const gridMoisture = gridPrecipitation.map(point => {
-        // Відносний рівень опадів порівняно з середнім
         const relativePrec = point.precipitation / (avgPrecipitation || 1);
         
-        // Розрахунок вологості на основі відносного рівня опадів
-        // та загальної вологості ґрунту
         let moisture;
         if (moistureDifference > 10) {
-          // Якщо вже волого, то навіть невеликі опади значно збільшують вологість
           moisture = currentMoisture + (relativePrec - 1) * 20;
         } else if (moistureDifference < -10) {
-          // Якщо сухо, то потрібно більше опадів для збільшення вологості
           moisture = currentMoisture + (relativePrec - 1) * 10;
         } else {
             // Нормальний випадок
          moisture = currentMoisture + (relativePrec - 1) * 15;
         }
         
-        // Обмежуємо значення вологості в діапазоні 0-100%
         moisture = Math.min(100, Math.max(0, moisture));
         
         return {
@@ -335,7 +255,6 @@ const moistureService = {
         };
       });
       
-      // Групуємо точки за рівнем вологості
       const dryZones = gridMoisture
         .filter(point => point.moisture < currentMoisture - 10)
         .map(point => ({
@@ -360,10 +279,9 @@ const moistureService = {
           lat: point.latitude,
           lon: point.longitude,
           moisture: parseFloat(point.moisture.toFixed(1)),
-          radius: 400 + Math.random() * 200 // Менший радіус для більш вологих зон
+          radius: 400 + Math.random() * 200 
         }));
       
-      // Забезпечуємо, що у нас є хоча б одна зона кожного типу
       if (dryZones.length === 0) {
         dryZones.push({
           lat: latitude + (Math.random() - 0.5) * 0.03,
@@ -404,30 +322,15 @@ const moistureService = {
     }
   },
  
-  /**
-   * Розрахувати середнє значення масиву чисел
-   * @param {Array<number>} values - Масив значень
-   * @returns {number} - Середнє значення
-   */
   calculateAverage(values) {
     if (!values || values.length === 0) return 0;
     return values.reduce((sum, val) => sum + (val || 0), 0) / values.length;
   },
  
-  /**
-   * Згенерувати базові зони ризику для відображення на карті (резервний метод)
-   * @param {number} centerLat - Центральна широта
-   * @param {number} centerLon - Центральна довгота
-   * @param {number} currentMoisture - Поточна вологість
-   * @param {number} historicalAverage - Історична середня вологість
-   * @returns {Object} - Зони ризику для відображення на карті
-   */
   generateBasicMoistureZones(centerLat, centerLon, currentMoisture, historicalAverage) {
-    // Розрахунок зон з різним рівнем вологості навколо центральної точки
-    const randomOffset = () => (Math.random() - 0.5) * 0.05; // Менший розкид для реалістичності
+    const randomOffset = () => (Math.random() - 0.5) * 0.05; 
     const moistureDifference = currentMoisture - historicalAverage;
     
-    // Кількість зон кожного типу залежить від різниці між поточною та історичною вологістю
     let dryZonesCount, normalZonesCount, wetZonesCount;
     
     if (moistureDifference < -15) {
@@ -441,7 +344,6 @@ const moistureService = {
       normalZonesCount = 3;
       wetZonesCount = 1;
     } else if (moistureDifference > 15) {
-      // Якщо дуже волого, більше вологих зон
       dryZonesCount = 1;
       normalZonesCount = 2;
       wetZonesCount = 4;
@@ -457,7 +359,6 @@ const moistureService = {
       wetZonesCount = 2;
     }
     
-    // Генерація сухих зон
     const dryZones = Array.from({ length: dryZonesCount }, () => {
       return {
         lat: centerLat + randomOffset(),
@@ -467,7 +368,6 @@ const moistureService = {
       };
     });
     
-    // Генерація нормальних зон
     const normalZones = Array.from({ length: normalZonesCount }, () => {
       return {
         lat: centerLat + randomOffset(),
@@ -477,7 +377,6 @@ const moistureService = {
       };
     });
     
-    // Генерація вологих зон
     const wetZones = Array.from({ length: wetZonesCount }, () => {
       return {
         lat: centerLat + randomOffset(),
@@ -494,19 +393,11 @@ const moistureService = {
       source: 'basic'
     };
   },
-  
-  /**
-   * Отримати рекомендації для вказаної культури на основі даних про вологість
-   * @param {string} city - Назва міста
-   * @param {string} crop - Назва культури
-   * @returns {Promise<Object>} - Рекомендації
-   */
+ 
   async getCropRecommendations(city, crop) {
     try {
-      // Отримуємо дані про вологість
       const moistureData = await this.getMoistureData({ city });
       
-      // Мапа оптимальних діапазонів вологості для різних культур
       const cropMoistureRanges = {
         wheat: { min: 35, max: 70, name: 'пшениці' },
         corn: { min: 40, max: 80, name: 'кукурудзи' },
@@ -517,13 +408,10 @@ const moistureService = {
         default: { min: 35, max: 70, name: 'сільськогосподарських культур' }
       };
       
-      // Отримуємо оптимальні значення для вказаної культури або використовуємо значення за замовчуванням
       const cropRange = cropMoistureRanges[crop] || cropMoistureRanges.default;
       
-      // Поточна вологість верхнього шару ґрунту
       const currentMoisture = moistureData.current_moisture;
       
-      // Визначаємо статус вологості для вказаної культури
       let status, recommendation;
       
       if (currentMoisture < cropRange.min - 10) {
@@ -543,7 +431,6 @@ const moistureService = {
         recommendation = `Оптимальна вологість для ${cropRange.name}. Підтримуйте поточний режим поливу.`;
       }
       
-      // Формуємо відповідь
       return {
         crop,
         crop_name: cropRange.name,

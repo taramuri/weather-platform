@@ -1,11 +1,13 @@
-const vegetationService = require('../services/vegetationService');
+const VegetationService = require('../services/vegetationService');
+
+const vegetationService = new VegetationService();
 
 const cache = {
   ndviData: {},
   indicesComparison: {}
 };
 
-const CACHE_TTL = 6 * 60 * 60 * 1000;
+const CACHE_TTL = 6 * 60 * 60 * 1000; 
 
 function isCacheValid(cacheEntry) {
   return cacheEntry && 
@@ -24,7 +26,7 @@ async function getNDVIData(req, res) {
         error: 'Необхідно вказати місто або координати (lat, lon)'
       });
     }
-    
+
     const cacheKey = city ? `city_${city}` : `coord_${lat}_${lon}`;
     
     if (cache.ndviData[cacheKey] && isCacheValid(cache.ndviData[cacheKey])) {
@@ -52,6 +54,7 @@ async function getNDVIData(req, res) {
       success: true,
       data: ndviData
     });
+
   } catch (error) {
     console.error('Помилка отримання даних NDVI:', error);
     return res.status(500).json({
@@ -73,7 +76,7 @@ async function getVegetationIndicesComparison(req, res) {
     }
     
     const cacheKey = city ? `city_${city}` : `coord_${lat}_${lon}`;
-    
+
     if (cache.indicesComparison[cacheKey] && isCacheValid(cache.indicesComparison[cacheKey])) {
       console.log(`Використання кешованих даних порівняння індексів для ${cacheKey}`);
       return res.json({

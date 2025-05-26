@@ -1,25 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Container, 
   Box, 
   Tabs,
-  Tab
+  Tab,
+  Alert
 } from '@mui/material';
 import TodayForecast from '../components/forecast/TodayForecast';
 import HourlyForecast from '../components/forecast/HourlyForecast';
 import TenDayForecast from '../components/forecast/TenDayForecast';
-import MonthlyForecast from '../components/forecast/MonthlyForecast';
 import AirQualityDetails from '../components/details/AirQualityDetails';
 import WeatherRadar from '../components/WeatherRadar';
 
 function Weather({ city, setLoading }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(0);
   const [currentWeather, setCurrentWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
   const [airQuality, setAirQuality] = useState(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    const cityParam = searchParams.get('city');
+    
+    if (tabParam) {
+      const tabIndex = parseInt(tabParam, 10);
+      if (tabIndex >= 0 && tabIndex <= 4) {
+        setActiveTab(tabIndex);
+      }
+    }
+    
+    if (cityParam && cityParam !== city) {
+      console.log('City from URL:', cityParam);
+    }
+  }, [searchParams, city]);
   
-  const fetchWeatherData = async (cityToFetch = city) => {
+  const fetchWeatherData = useCallback(async (cityToFetch = city) => {
     if (!cityToFetch) return;
     
     setLoading(true);
@@ -68,18 +86,32 @@ function Weather({ city, setLoading }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [city, setLoading]);
 
   useEffect(() => {
     fetchWeatherData();
-  }, [city]);
+  }, [fetchWeatherData]); 
   
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+    
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', newValue.toString());
+    if (city) {
+      newSearchParams.set('city', city);
+    }
+    setSearchParams(newSearchParams);
   };
 
   return (
     <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
+      {/* Відображення помилки, якщо вона є */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       {/* Основні вкладки */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs 
@@ -91,7 +123,6 @@ function Weather({ city, setLoading }) {
           <Tab label="Сьогодні" />
           <Tab label="Погодинно" />
           <Tab label="10 Днів" />
-          <Tab label="Щомісяця" />
           <Tab label="Радар" />
           <Tab label="Якість повітря" />
         </Tabs>
@@ -109,11 +140,10 @@ function Weather({ city, setLoading }) {
       )}
       {activeTab === 1 && <HourlyForecast city={city} onTabChange={setActiveTab} />}
       {activeTab === 2 && <TenDayForecast city={city} />}
-      {activeTab === 3 && <MonthlyForecast city={city} />}
-      {activeTab === 4 && <WeatherRadar city={city} />}
-      {activeTab === 5 && <AirQualityDetails city={city} airQuality={airQuality} />}
+      {activeTab === 3 && <WeatherRadar city={city} />}
+      {activeTab === 4 && <AirQualityDetails city={city} airQuality={airQuality} />}
     </Container>
   );
 }
 
-export default Weather; 
+export default Weather;

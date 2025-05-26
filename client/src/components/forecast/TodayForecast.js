@@ -6,7 +6,6 @@ import CurrentWeatherCard from '../cards/CurrentWeatherCard';
 import AirQualityCard from '../cards/AirQualityCard';
 import WeatherDetailsCard from '../cards/WeatherDetailsCard';
 import HourlyForecastPreview from '../forecast/hourly/HourlyForecastPreview';
-import AgroInfoCard from '../cards/AgroInfoCard';
 
 function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange, onRefresh }) {
   const [hourlyData, setHourlyData] = useState([]);
@@ -78,7 +77,7 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
   };
 
   const handleViewAirQualityDetails = () => {
-    if (onTabChange) onTabChange(5);
+    if (onTabChange) onTabChange(4);
   };
 
   const handleRefresh = () => {
@@ -144,7 +143,6 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
   if (!isForecastValid && isWeatherDataValid) {
     return (
       <Grid container spacing={3}>
-        {/* Основний блок з поточною погодою */}
         <Grid item xs={12}>
           <CurrentWeatherCard 
             city={city} 
@@ -152,7 +150,6 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
           />
         </Grid>
 
-        {/* Сообщение об ошибке прогноза */}
         <Grid item xs={12}>
           <Alert 
             severity="warning"
@@ -162,7 +159,6 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
           </Alert>
         </Grid>
 
-        {/* Блок с качеством воздуха, если данные есть */}
         {airQuality && (
           <Grid item xs={12} md={6}>
             <AirQualityCard 
@@ -172,7 +168,6 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
           </Grid>
         )}
 
-        {/* Блок з детальними даними про погоду */}
         <Grid item xs={12} md={airQuality ? 6 : 12}>
           <WeatherDetailsCard 
             city={city} 
@@ -185,7 +180,6 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
 
   return (
     <Grid container spacing={3}>
-      {/* Основний блок з поточною погодою */}
       <Grid item xs={12}>
         <CurrentWeatherCard 
           city={city} 
@@ -193,7 +187,6 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
         />
       </Grid>
 
-      {/* Блок з показником якості повітря */}
       <Grid item xs={12} md={6}>
         <AirQualityCard 
           airQuality={airQuality} 
@@ -201,7 +194,6 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
         />
       </Grid>
 
-      {/* Блок з детальними даними про погоду */}
       <Grid item xs={12} md={6}>
         <WeatherDetailsCard 
           city={city} 
@@ -217,11 +209,6 @@ function TodayForecast({ currentWeather, forecast, city, airQuality, onTabChange
           hourlyError={hourlyError}
           onViewHourly={handleViewHourlyForecast}
         />
-      </Grid>
-
-      {/* Агрометеорологічна інформація */}
-      <Grid item xs={12}>
-        <AgroInfoCard />
       </Grid>
     </Grid>
   );

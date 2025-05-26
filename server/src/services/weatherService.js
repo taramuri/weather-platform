@@ -207,7 +207,6 @@ const weatherService = {
             existingCity.country = location.country || 'Ukraine';
             await existingCity.save();
             
-            console.log(`Оновлено координати для міста ${safeCity}`);
           }
         } catch (dbError) {
           console.error('Помилка роботи з базою даних:', dbError);
@@ -645,7 +644,7 @@ const weatherService = {
           longitude: location.longitude,
           daily: 'weather_code,temperature_2m_max,temperature_2m_min,temperature_2m_mean,relative_humidity_2m_mean,wind_speed_10m_max,precipitation_probability_max,sunrise,sunset,uv_index_max',
           timezone: 'auto',
-          forecast_days: 30
+          forecast_days: 16
         }
       });
       

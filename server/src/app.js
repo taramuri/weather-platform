@@ -5,6 +5,8 @@ const mongoose = require('mongoose');
 const weatherRoutes = require('./routes/weather');
 const weatherMapRoutes = require('./routes/weatherMapRoutes');
 const moistureRoutes = require('./routes/moistureRoutes');
+const vegetationRoutes = require('./routes/vegetationRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
 require('dotenv').config();
 
@@ -28,6 +30,8 @@ app.get('/', (req, res) => {
 app.use('/api/weather', weatherRoutes);
 app.use('/api/moisture', moistureRoutes);
 app.use('/api/weathermap', weatherMapRoutes);
+app.use('/api/vegetation', vegetationRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

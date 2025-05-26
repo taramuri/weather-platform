@@ -1,16 +1,10 @@
 const moistureService = require('../services/moistureService');
 
-// Кеш даних для оптимізації запитів
 const cache = {
-  regionalData: {}, // Кеш для регіональних даних
-  historicData: {} // Кеш для історичних даних
+  regionalData: {}, 
+  historicData: {} 
 };
 
-/**
- * Перевірка актуальності кешу
- * @param {Object} cacheEntry - Запис кешу
- * @returns {boolean} - Чи валідний кеш
- */
 function isCacheValid(cacheEntry) {
   return cacheEntry && 
          cacheEntry.data && 
@@ -18,12 +12,7 @@ function isCacheValid(cacheEntry) {
          (Date.now() - cacheEntry.timestamp < cacheEntry.ttl);
 }
 
-/**
- * Отримати дані про вологість та зони ризику
- * @param {Object} req - Об'єкт запиту Express
- * @param {Object} res - Об'єкт відповіді Express
- * @returns {Promise<void>}
- */
+
 async function getMoistureData(req, res) {
   try {
     const { city, lat, lon } = req.query;
@@ -35,12 +24,9 @@ async function getMoistureData(req, res) {
       });
     }
     
-    // Створюємо ключ кешу на основі параметрів запиту
     const cacheKey = city ? `city_${city}` : `coord_${lat}_${lon}`;
     
-    // Перевіряємо кеш
     if (cache.regionalData[cacheKey] && isCacheValid(cache.regionalData[cacheKey])) {
-      console.log(`Використання кешованих даних для ${cacheKey}`);
       return res.json({
         success: true,
         data: cache.regionalData[cacheKey].data,
@@ -49,18 +35,16 @@ async function getMoistureData(req, res) {
     }
     
     try {
-      // Спробуємо отримати дані через сервіс
       const moistureData = await moistureService.getMoistureData({
         city,
         lat: lat ? parseFloat(lat) : null,
         lon: lon ? parseFloat(lon) : null
       });
       
-      // Зберігаємо дані в кеш
       cache.regionalData[cacheKey] = {
         data: moistureData,
         timestamp: Date.now(),
-        ttl: 2 * 60 * 60 * 1000 // 2 години
+        ttl: 2 * 60 * 60 * 1000 
       };
       
       return res.json({
@@ -68,10 +52,6 @@ async function getMoistureData(req, res) {
         data: moistureData
       });
     } catch (error) {
-      // Якщо сервіс недоступний, використовуємо тестові дані
-      console.log(`Створення тестових даних для ${city || 'координат'}`);
-      
-      // Генеруємо тестові дані
       const baseValue = 50 + (Math.random() - 0.5) * 20;
       
       const mockData = {
@@ -87,11 +67,10 @@ async function getMoistureData(req, res) {
         forecast: generateMockForecast(baseValue)
       };
       
-      // Зберігаємо тестові дані в кеш
       cache.regionalData[cacheKey] = {
         data: mockData,
         timestamp: Date.now(),
-        ttl: 2 * 60 * 60 * 1000 // 2 години
+        ttl: 2 * 60 * 60 * 1000 
       };
       
       return res.json({
@@ -109,7 +88,6 @@ async function getMoistureData(req, res) {
   }
 }
 
-// Допоміжні функції для генерації тестових даних
 function getRiskLevelFromMoisture(moisture) {
   if (moisture < 30) return 'high-dry';
   if (moisture < 45) return 'moderate-dry';
@@ -126,7 +104,6 @@ function generateMockForecast(baseMoisture) {
     const date = new Date(startDate);
     date.setDate(date.getDate() + i);
     
-    // Варіація вологості з трендом (змінюється повільно з часом)
     const variation = Math.sin(i * 0.5) * 10;
     const moisture = Math.min(95, Math.max(5, Math.round(baseMoisture + variation)));
     
@@ -141,12 +118,6 @@ function generateMockForecast(baseMoisture) {
   return forecast;
 }
 
-/**
- * Отримати рекомендації для сільськогосподарських культур
- * @param {Object} req - Об'єкт запиту Express
- * @param {Object} res - Об'єкт відповіді Express
- * @returns {Promise<void>}
- */
 async function getCropRecommendations(req, res) {
   try {
     const { city, crop } = req.query;
@@ -167,7 +138,6 @@ async function getCropRecommendations(req, res) {
   } catch (error) {
     console.error('Помилка отримання рекомендацій для культури:', error);
     
-    // Генеруємо тестові дані
     const mockRecommendations = {
       crop: crop,
       city: city,

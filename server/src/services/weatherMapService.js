@@ -38,7 +38,6 @@ const weatherMapService = {
       }
       
       if (existingCity && existingCity.latitude && existingCity.longitude) {
-        console.log(`Координати для міста ${city} знайдені в базі даних`);
         return {
           name: existingCity.displayName || existingCity.originalName,
           translatedName: existingCity.translatedName,
@@ -46,9 +45,7 @@ const weatherMapService = {
           longitude: existingCity.longitude,
           country: existingCity.country || 'Ukraine'
         };
-      }
-      
-      console.log(`Координати для міста ${city} не знайдені в базі даних, виконуємо геокодинг`);
+      }    
       
       let searchName = normalizedCityName;
       if (existingCity && existingCity.translatedName) {
@@ -88,7 +85,6 @@ const weatherMapService = {
         existingCity.longitude = location.longitude;
         existingCity.country = location.country;
         await existingCity.save();
-        console.log(`Оновлено координати для міста ${city} в базі даних`);
       } else {
         await CityTranslation.create({
           originalName: normalizedCityName,

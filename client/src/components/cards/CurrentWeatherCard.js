@@ -14,7 +14,7 @@ function CurrentWeatherCard({ city, currentWeather }) {
         sx={{ 
           p: 3, 
           borderRadius: 2,
-          backgroundImage: 'linear-gradient(to bottom, #614385, #516395)',
+          backgroundImage: 'linear-gradient(135deg, #3b6e36 0%, #6c9740 50%, #c3d69b 100%);',
           color: 'white'
         }}
       >
@@ -42,7 +42,7 @@ function CurrentWeatherCard({ city, currentWeather }) {
         sx={{ 
           p: 3, 
           borderRadius: 2,
-          backgroundImage: 'linear-gradient(to bottom, #614385, #516395)',
+          backgroundImage: 'linear-gradient(135deg, #3b6e36 0%, #6c9740 50%, #c3d69b 100%);',
           color: 'white'
         }}
       >
@@ -69,7 +69,7 @@ function CurrentWeatherCard({ city, currentWeather }) {
       sx={{ 
         p: 3, 
         borderRadius: 2,
-        backgroundImage: 'linear-gradient(to bottom, #614385, #516395)',
+        backgroundImage: 'linear-gradient(135deg, #3b6e36 0%, #6c9740 50%, #c3d69b 100%);',
         color: 'white'
       }}
     >

@@ -1,98 +1,119 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Paper, Typography} from '@mui/material';
 import DailyTabs from './hourly/DailyTabs';
 import HourlyForecastContent from './hourly/HourlyForecastContent';
 import { getWeatherIcon, capitalizeFirstLetter, formatDateToUkrainianFormat } from '../utils/weatherUtils';
 
-function HourlyForecast({ city, onTabChange }) {
-  const [hourlyForecast, setHourlyForecast] = useState([]);
-  const [loading, setLoading] = useState(false);
+function HourlyForecast({ 
+  city, 
+  onTabChange,
+  hourlyForecastData = null, 
+  loading: externalLoading = false 
+}) {
+  const [localHourlyForecast, setLocalHourlyForecast] = useState([]);
+  const [localLoading, setLocalLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedDay, setSelectedDay] = useState(0);
   const [expandedHour, setExpandedHour] = useState(null);
 
-  useEffect(() => {
-    const fetchHourlyForecast = async () => {
-      if (!city) return;
+  const shouldFetchData = !hourlyForecastData && city;
+  const rawHourlyData = hourlyForecastData || localHourlyForecast;
+  const loading = externalLoading || localLoading;
 
-      setLoading(true);
-      setError('');
-      
-      try {
-        const response = await fetch(`http://localhost:5000/api/weather/hourly/${city}`);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Помилка отримання погодинного прогнозу');
-        }
-        
-        const data = await response.json();
-        
-        // Організовуємо дані по днях
-        const organizedData = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        
-        const afterTomorrow = new Date(today);
-        afterTomorrow.setDate(afterTomorrow.getDate() + 2);
-        
-        data.forEach(hourData => {
-          const hourDate = new Date(hourData.time);
-          hourDate.setHours(hourDate.getHours());
-          
-          const dateWithoutTime = new Date(hourDate);
-          dateWithoutTime.setHours(0, 0, 0, 0);
-          
-          let day;
-          if (dateWithoutTime.getTime() === today.getTime()) {
-            day = 0; // сьогодні
-          } else if (dateWithoutTime.getTime() === tomorrow.getTime()) {
-            day = 1; // завтра
-          } else if (dateWithoutTime.getTime() === afterTomorrow.getTime()) {
-            day = 2; // післязавтра
-          } else {
-            return; 
-          }
-          
-          if (day === 0) {
-            const currentHour = new Date().getHours();
-            if (hourDate.getHours() < currentHour) return;
-          }
-          
-          organizedData.push({
-            date: hourDate,
-            day: day,
-            hour: hourDate.getHours(),
-            temperature: hourData.temperature,
-            feelsLike: hourData.temperature - Math.random(1,3),
-            description: hourData.description,
-            humidity: hourData.humidity,
-            windSpeed: hourData.windSpeed,
-            windDirection: hourData.windDirection || 'Пд', // Використовуємо реальні дані або значення за замовчуванням
-            precipProbability: hourData.precipProbability || 0, // Використовуємо реальні дані або значення за замовчуванням
-            condition: hourData.icon || getWeatherIcon(hourData.description),
-            uvIndex: hourData.uvIndex || '1 з 11', // Додаткова інформація
-            cloudiness: hourData.cloudiness || 95, // Додаткова інформація
-            rainAmount: hourData.rainAmount || 0 // Додаткова інформація
-          });
-        });
-        
-        setHourlyForecast(organizedData);
-      } catch (err) {
-        console.error('Помилка:', err);
-        setError(err.message || 'Помилка отримання погодинного прогнозу');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const hourlyForecast = Array.isArray(rawHourlyData) ? processHourlyData(rawHourlyData) : [];
+
+  const fetchHourlyForecast = useCallback(async () => {
+    if (!city) return;
+
+    setLocalLoading(true);
+    setError('');
     
-    fetchHourlyForecast();
-  }, [city]);
+    try {
+      const response = await fetch(`http://localhost:5000/api/weather/hourly/${encodeURIComponent(city)}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Помилка отримання погодинного прогнозу');
+      }
+      
+      const data = await response.json();
+      console.log('HourlyForecast: Отримані дані:', data);
+      setLocalHourlyForecast(data);
+    } catch (err) {
+      console.error('HourlyForecast: Помилка:', err);
+      setError(err.message || 'Помилка отримання погодинного прогнозу');
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [city]); 
+
+  useEffect(() => {
+    if (shouldFetchData) {
+      console.log('HourlyForecast: Fetching data for city:', city);
+      fetchHourlyForecast();
+    } else if (hourlyForecastData) {
+      console.log('HourlyForecast: Using external data:', hourlyForecastData);
+      setError(''); 
+    }
+  }, [city, shouldFetchData, hourlyForecastData, fetchHourlyForecast]); 
+
+  function processHourlyData(data) {
+    if (!Array.isArray(data)) return [];
+
+    const organizedData = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const afterTomorrow = new Date(today);
+    afterTomorrow.setDate(afterTomorrow.getDate() + 2);
+    
+    data.forEach(hourData => {
+      const hourDate = new Date(hourData.time);
+      hourDate.setHours(hourDate.getHours());
+      
+      const dateWithoutTime = new Date(hourDate);
+      dateWithoutTime.setHours(0, 0, 0, 0);
+      
+      let day;
+      if (dateWithoutTime.getTime() === today.getTime()) {
+        day = 0; 
+      } else if (dateWithoutTime.getTime() === tomorrow.getTime()) {
+        day = 1;
+      } else if (dateWithoutTime.getTime() === afterTomorrow.getTime()) {
+        day = 2; 
+      } else {
+        return; 
+      }
+      
+      if (day === 0) {
+        const currentHour = new Date().getHours();
+        if (hourDate.getHours() < currentHour) return;
+      }
+      
+      organizedData.push({
+        date: hourDate,
+        day: day,
+        hour: hourDate.getHours(),
+        temperature: hourData.temperature,
+        feelsLike: hourData.temperature - Math.random() * 3,
+        description: hourData.description,
+        humidity: hourData.humidity,
+        windSpeed: hourData.windSpeed,
+        windDirection: hourData.windDirection || 'Пд',
+        precipProbability: hourData.precipProbability || 0,
+        condition: hourData.icon || getWeatherIcon(hourData.description),
+        uvIndex: hourData.uvIndex || '1 з 11',
+        cloudiness: hourData.cloudiness || 95,
+        rainAmount: hourData.rainAmount || 0
+      });
+    });
+    
+    return organizedData;
+  }
   
-  // Функція для розгортання/згортання детальної інформації
   const toggleHourDetails = (hourIndex) => {
     if (expandedHour === hourIndex) {
       setExpandedHour(null);
@@ -101,22 +122,19 @@ function HourlyForecast({ city, onTabChange }) {
     }
   };
   
-  // Фільтрація погодинних даних за обраним днем
   const filteredHourlyData = hourlyForecast.filter(forecast => forecast.day === selectedDay);
   
   const handleDayChange = (event, newValue) => {
     setSelectedDay(newValue);
-    setExpandedHour(null); // Скидаємо розгорнуті деталі при зміні дня
+    setExpandedHour(null); 
   };
   
-  // Перехід на вкладку "День 10"
   const handleGoToTenDayForecast = () => {
     if (onTabChange) {
       onTabChange(2); 
     }
   };
 
-  // Отримання унікальних дат для вкладок
   const getTabs = () => {
     const today = new Date();
     const tomorrow = new Date();
@@ -149,10 +167,14 @@ function HourlyForecast({ city, onTabChange }) {
           Станом на {new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
         </Typography>
         
-        {/* Вкладки для вибору дня */}
+        {hourlyForecastData && (
+          <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
+            📊 Дані отримані з централізованого Dashboard
+          </Typography>
+        )}
+    
         <DailyTabs selectedDay={selectedDay} onDayChange={handleDayChange} />
         
-        {/* Відображення погодинного прогнозу */}
         {loading ? (
           <Typography>Завантаження даних прогнозу...</Typography>
         ) : error ? (

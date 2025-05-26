@@ -1,7 +1,5 @@
 import React from 'react';
 import { Box, Tabs, Tab } from '@mui/material';
-import { format } from 'date-fns';
-import { uk } from 'date-fns/locale';
 import { capitalizeFirstLetter, formatDateToUkrainianFormat } from '../../utils/weatherUtils';
 
 function DailyTabs({ selectedDay, onDayChange }) {

@@ -13,31 +13,50 @@ import {
   Switch,
   FormControlLabel,
   Avatar,
-  Divider,
   useTheme,
   useMediaQuery,
   Snackbar,
   Alert
 } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { 
   WbSunny, 
-  Grass, 
-  Dashboard, 
-  LocationOn as LocationIcon,
-  Menu as MenuIcon 
+  LocationOn as LocationIcon
 } from '@mui/icons-material';
 import { useTemperature } from '../../context/TemperatureContext';
+
+const navbarButtonStyles = {
+  borderRadius: '8px',
+  color: 'white !important',
+  textTransform: 'none',
+  '&:hover': { 
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: 'white !important'
+  },
+  '&.MuiButton-colorInherit': {
+    color: 'white !important',
+    '&:hover': {
+      color: 'white !important',
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
+  },
+  '&&': {
+    color: 'white',
+    '&:hover': {
+      color: 'white',
+    },
+  },
+};
 
 function Navbar({ onCityChange, loading }) {
   const DEFAULT_CITY = 'київ';
   const [inputCity, setInputCity] = useState('');
   const [cities, setCities] = useState([]);
   const [loadingCities, setLoadingCities] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { units, toggleUnits } = useTemperature();
   const [error, setError] = useState(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const navigate = useNavigate();
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -49,6 +68,10 @@ function Navbar({ onCityChange, loading }) {
     if (fallbackToDefault) {
       handleFallbackToDefaultCity();
     }
+  };
+
+  const handleLogoClick = () => {
+    navigate('/');
   };
 
   useEffect(() => {
@@ -220,145 +243,80 @@ function Navbar({ onCityChange, loading }) {
   return (
     <>
       <AppBar position="static" sx={{ 
-        backgroundColor: '#1a365d', 
+        backgroundColor: '#132a13', 
         boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' 
       }}>
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
           {/* Логотип і назва сайту */}
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Avatar 
-              alt="AgroCast" 
-              src="/logo.png"
+            <Box 
               sx={{ 
-                width: 40, 
-                height: 40, 
-                mr: 1.5,
-                backgroundColor: 'primary.light',
-                '& img': { objectFit: 'contain' }
+                display: 'flex', 
+                alignItems: 'center',
+                cursor: 'pointer',
+                mr: { xs: 1, md: 3 },
+                '&:hover': {
+                  opacity: 0.8
+                }
               }}
+              onClick={handleLogoClick}
             >
-              <Grass sx={{ color: '#fff' }} />
-            </Avatar>
-            <Typography 
-              variant="h5" 
-              component="div" 
-              sx={{ 
-                fontWeight: 700, 
-                background: 'linear-gradient(to right, #a2e3ff, #ffffff)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                mr: 3,
-                display: { xs: 'none', sm: 'block' }
-              }}
-            >
-              AgroCast
-            </Typography>
-
-            {/* Меню для мобільних пристроїв */}
-            {isMobile && (
-              <IconButton 
-                color="inherit" 
-                edge="start" 
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              <Avatar 
+                alt="AgroCast" 
+                sx={{ 
+                  width: { xs: 32, md: 40 }, 
+                  height: { xs: 32, md: 40 }, 
+                  mr: { xs: 1, md: 1.5 },
+                  backgroundColor: 'transparent',
+                  '& img': { 
+                    objectFit: 'contain',
+                    width: '100%',
+                    height: '100%'
+                  }
+                }}
               >
-                <MenuIcon />
-              </IconButton>
-            )}
-            
-            {/* Навігаційні кнопки для десктопів */}
+                <img 
+                  src="/icons/main-icon.svg" 
+                  alt="AgroCast Logo"
+                  style={{ 
+                    width: '100%', 
+                    height: '100%',
+                    objectFit: 'contain'
+                  }}
+                />
+              </Avatar>
+              <Typography 
+                variant={isMobile ? "h6" : "h5"}
+                component="div" 
+                sx={{ 
+                  fontWeight: 700, 
+                  color: '#ecf39e'
+                }}
+              >
+                AgroCast
+              </Typography>
+            </Box>
+
             {!isMobile && (
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
                   color="inherit"
                   component={RouterLink}
-                  to="/"
-                  startIcon={<Dashboard />}
-                  sx={{ 
-                    borderRadius: '8px',
-                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
-                  }}
-                >
-                  Дашборд
-                </Button>
-                <Button
-                  color="inherit"
-                  component={RouterLink}
                   to="/weather"
                   startIcon={<WbSunny />}
-                  sx={{ 
-                    borderRadius: '8px',
-                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
-                  }}
+                  sx={navbarButtonStyles}
                 >
-                  Погода
-                </Button>
-                <Button
-                  color="inherit"
-                  component={RouterLink}
-                  to="/agricultural"
-                  startIcon={<Grass />}
-                  sx={{ 
-                    borderRadius: '8px',
-                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
-                  }}
-                >
-                  Агродані
+                  Прогноз погоди
                 </Button>
               </Box>
             )}
           </Box>
           
-          {/* Розгорнуте мобільне меню */}
-          {isMobile && mobileMenuOpen && (
-            <Box 
-              sx={{ 
-                position: 'absolute', 
-                top: '64px', 
-                left: 0, 
-                right: 0, 
-                backgroundColor: '#1a365d', 
-                zIndex: 1000,
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                display: 'flex',
-                flexDirection: 'column',
-                py: 2
-              }}
-            >
-              <Button
-                color="inherit"
-                component={RouterLink}
-                to="/"
-                startIcon={<Dashboard />}
-                sx={{ py: 1, justifyContent: 'flex-start', pl: 2 }}
-              >
-                Дашборд
-              </Button>
-              <Button
-                color="inherit"
-                component={RouterLink}
-                to="/weather"
-                startIcon={<WbSunny />}
-                sx={{ py: 1, justifyContent: 'flex-start', pl: 2 }}
-              >
-                Погода
-              </Button>
-              <Button
-                color="inherit"
-                component={RouterLink}
-                to="/agricultural"
-                startIcon={<Grass />}
-                sx={{ py: 1, justifyContent: 'flex-start', pl: 2 }}
-              >
-                Агродані
-              </Button>
-            </Box>
-          )}
-          
           {/* Пошук і налаштування */}
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
-            gap: 1,
+            gap: { xs: 0.5, md: 1 },
             ml: { xs: 1, md: 2 },
             flexGrow: 1, 
             maxWidth: { xs: 'auto', sm: '50%' } 
@@ -368,6 +326,7 @@ function Navbar({ onCityChange, loading }) {
                 color="inherit" 
                 onClick={detectLocation}
                 disabled={loading}
+                size={isMobile ? "small" : "medium"}
                 sx={{ 
                   mr: { xs: 0.5, sm: 1 },
                   bgcolor: 'rgba(255, 255, 255, 0.1)',
@@ -378,88 +337,86 @@ function Navbar({ onCityChange, loading }) {
               </IconButton>
             </Tooltip>
             
-            <Autocomplete
-              freeSolo
-              options={cities}
-              loading={loadingCities}
-              getOptionLabel={(option) => {
-                if (typeof option === 'string') {
-                  return option || '';
-                }
-                return option.label || '';
-              }}
-              onChange={(event, newValue) => {
-                handleSearch(newValue);
-              }}
-              onInputChange={(event, newInputValue) => {
-                setInputCity(newInputValue || '');
-              }}
-              sx={{ 
-                flexGrow: 1,
-                display: { xs: 'none', sm: 'flex' }
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  placeholder="Пошук за назвою міста"
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSearch(inputCity);
-                    }
-                  }}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <React.Fragment>
-                        {loadingCities ? <CircularProgress color="inherit" size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                        <Button 
-                          variant="contained" 
-                          onClick={() => handleSearch(inputCity)}
-                          disabled={loading || !inputCity?.trim()} 
-                          sx={{ 
-                            ml: 1,
-                            bgcolor: 'primary.light',
-                            '&:hover': {
-                              bgcolor: 'primary.main',
-                            }
-                          }}
-                        >
-                          {loading ? <CircularProgress size={24} color="inherit" /> : 'Пошук'}
-                        </Button>
-                      </React.Fragment>
-                    ),
-                  }}
-                  sx={{ 
-                    '& .MuiOutlinedInput-root': {
-                      color: 'white',
-                      '& fieldset': {
-                        borderColor: 'rgba(255, 255, 255, 0.5)',
+            {!isMobile ? (
+              <Autocomplete
+                freeSolo
+                options={cities}
+                loading={loadingCities}
+                getOptionLabel={(option) => {
+                  if (typeof option === 'string') {
+                    return option || '';
+                  }
+                  return option.label || '';
+                }}
+                onChange={(event, newValue) => {
+                  handleSearch(newValue);
+                }}
+                onInputChange={(event, newInputValue) => {
+                  setInputCity(newInputValue || '');
+                }}
+                sx={{ 
+                  flexGrow: 1
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Пошук за назвою міста"
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearch(inputCity);
+                      }
+                    }}
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <React.Fragment>
+                          {loadingCities ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.InputProps.endAdornment}
+                          <Button 
+                            variant="contained" 
+                            onClick={() => handleSearch(inputCity)}
+                            disabled={loading || !inputCity?.trim()} 
+                            sx={{ 
+                              ml: 1,
+                              bgcolor: '#31572c',
+                              '&:hover': {
+                                bgcolor: '#4f772d',
+                              }
+                            }}
+                          >
+                            {loading ? <CircularProgress size={24} color="inherit" /> : 'Пошук'}
+                          </Button>
+                        </React.Fragment>
+                      ),
+                    }}
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': {
+                        color: 'white',
+                        '& fieldset': {
+                          borderColor: 'rgba(255, 255, 255, 0.5)',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: 'white',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: 'white',
+                        },
                       },
-                      '&:hover fieldset': {
-                        borderColor: 'white',
+                      '& .MuiInputBase-input::placeholder': {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        opacity: 1,
                       },
-                      '&.Mui-focused fieldset': {
-                        borderColor: 'white',
-                      },
-                    },
-                    '& .MuiInputBase-input::placeholder': {
-                      color: 'rgba(255, 255, 255, 0.7)',
-                      opacity: 1,
-                    },
-                  }}
-                />
-              )}
-            />
-            
-            {/* Мобильный поиск - добавляем простой TextField для мобильных устройств */}
-            {isMobile && (
+                    }}
+                  />
+                )}
+              />
+            ) : (
               <Box sx={{ display: 'flex', flexGrow: 1 }}>
                 <TextField
-                  placeholder="Пошук міста"
+                  placeholder="Місто"
                   variant="outlined"
                   size="small"
                   value={inputCity}
@@ -487,20 +444,22 @@ function Navbar({ onCityChange, loading }) {
                   variant="contained" 
                   onClick={() => handleSearch(inputCity)}
                   disabled={loading || !inputCity?.trim()}
+                  size="small"
                   sx={{ 
                     ml: 0.5,
                     minWidth: 'auto',
-                    px: 1,
-                    bgcolor: 'primary.light',
+                    px: { xs: 1, sm: 2 },
+                    bgcolor: '#31572c',
                   }}
                 >
-                  {loading ? <CircularProgress size={20} color="inherit" /> : 'OK'}
+                  {loading ? <CircularProgress size={16} color="inherit" /> : 'OK'}
                 </Button>
               </Box>
             )}
           </Box>
           
-          <Box sx={{ display: 'flex', alignItems: 'center', ml: { xs: 1, sm: 2 } }}>
+          {/* Перемикач одиниць вимірювання */}
+          <Box sx={{ display: 'flex', alignItems: 'center', ml: { xs: 0.5, sm: 2 } }}>
             <FormControlLabel
               control={
                 <Switch 
@@ -515,7 +474,7 @@ function Navbar({ onCityChange, loading }) {
                 color: 'white',
                 mr: 0,
                 '& .MuiFormControlLabel-label': {
-                  fontSize: { xs: '0.8rem', sm: '1rem' }
+                  fontSize: { xs: '0.75rem', sm: '1rem' }
                 }
               }}
             />

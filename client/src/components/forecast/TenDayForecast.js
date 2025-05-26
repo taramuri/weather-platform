@@ -1,42 +1,53 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Paper, Typography } from '@mui/material';
 import { capitalizeFirstLetter } from '../utils/weatherUtils';
 import DayRow from './tenday/TenDayRow';
 
-function TenDayForecast({ city }) {
-  const [forecast, setForecast] = useState([]);
-  const [loading, setLoading] = useState(false);
+function TenDayForecast({ 
+  city, 
+  extendedForecastData = null, 
+  loading: externalLoading = false 
+}) {
+  const [localForecast, setLocalForecast] = useState([]);
+  const [localLoading, setLocalLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedDay, setExpandedDay] = useState(null);
 
-  useEffect(() => {
-    const fetchForecast = async () => {
-      if (!city) return;
+  const shouldFetchData = !extendedForecastData && city;
+  const forecast = extendedForecastData || localForecast;
+  const loading = externalLoading || localLoading;
 
-      setLoading(true);
-      setError('');
+  const fetchForecast = useCallback(async () => {
+    if (!city) return;
 
-      try {
-        const response = await fetch(`http://localhost:5000/api/weather/extended-forecast/${city}`);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Помилка отримання прогнозу погоди');
-        }
+    setLocalLoading(true);
+    setError('');
 
-        const data = await response.json();
-        console.log('Отримані дані:', data);
-        setForecast(data);
-      } catch (err) {
-        console.error('Помилка:', err);
-        setError(err.message || 'Помилка отримання прогнозу погоди');
-      } finally {
-        setLoading(false);
+    try {
+      const response = await fetch(`http://localhost:5000/api/weather/extended-forecast/${encodeURIComponent(city)}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Помилка отримання прогнозу погоди');
       }
-    };
 
-    fetchForecast();
+      const data = await response.json();
+      setLocalForecast(data);
+    } catch (err) {
+      console.error('TenDayForecast: Помилка:', err);
+      setError(err.message || 'Помилка отримання прогнозу погоди');
+    } finally {
+      setLocalLoading(false);
+    }
   }, [city]);
+
+  useEffect(() => {
+    if (shouldFetchData) {
+      fetchForecast();
+    } else if (extendedForecastData) {
+      setError('');
+    }
+  }, [city, shouldFetchData, extendedForecastData, fetchForecast]);
 
   const toggleDayDetails = (dayIndex) => {
     if (expandedDay === dayIndex) {
@@ -52,6 +63,12 @@ function TenDayForecast({ city }) {
         <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
           Прогноз погоди на 10 днів - {capitalizeFirstLetter(city)}
         </Typography>
+        
+        {extendedForecastData && (
+          <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
+            📊 Дані отримані з централізованого Dashboard
+          </Typography>
+        )}
 
         {loading ? (
           <Typography>Завантаження даних прогнозу...</Typography>

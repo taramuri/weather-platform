@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Grid, Paper, Typography, Button, Box } from '@mui/material';
+import { Container, Grid, Paper, Typography, Button } from '@mui/material';
 import { 
   WaterDrop as WaterDropIcon, 
   Grass as GrassIcon, 
@@ -54,9 +54,25 @@ function AgriculturalData({ city }) {
           </Paper>
         </Grid>
         
-        {/* Заглушки для інших модулів */}
+        {/* Модуль Індекси вегетації - тепер активний */}
         <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Paper 
+            component={Link} 
+            to="/agricultural/vegetation" 
+            sx={{ 
+              p: 3, 
+              height: '100%', 
+              display: 'flex', 
+              flexDirection: 'column',
+              textDecoration: 'none',
+              color: 'inherit',
+              transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-5px)',
+                boxShadow: 3
+              }
+            }}
+          >
             <GrassIcon color="success" fontSize="large" sx={{ mb: 2 }} />
             <Typography variant="h6" fontWeight="medium" mb={1}>
               Індекси вегетації
@@ -64,8 +80,8 @@ function AgriculturalData({ city }) {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2, flexGrow: 1 }}>
               Оцінка стану рослинності на основі супутникових даних (NDVI, EVI)
             </Typography>
-            <Button variant="outlined" color="primary" fullWidth disabled>
-              Скоро буде доступно
+            <Button variant="outlined" color="success" fullWidth>
+              Переглянути
             </Button>
           </Paper>
         </Grid>
