@@ -29,7 +29,7 @@ import AlertsPanel from '../components/alerts/AlertsPanel';
 import AirQualityCard from '../components/cards/AirQualityCard';
 import AnalyticsOverview from '../components/analytics/AnalyticsOverview';
 
-import { capitalizeFirstLetter } from '../components/utils/weatherUtils';
+import { capitalizeFirstLetter, UkrainianWeekday } from '../components/utils/weatherUtils';
 import { WEATHER_TABS } from '../components/utils/urlUtils';
 
 const Dashboard = ({ city = 'Київ', setLoading }) => {
@@ -357,12 +357,12 @@ const Dashboard = ({ city = 'Київ', setLoading }) => {
               </Typography>
             </Box>
             <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-              {capitalizeFirstLetter(city)} • {capitalizeFirstLetter(new Date().toLocaleDateString('uk-UA', { 
+              {capitalizeFirstLetter(city)} • {UkrainianWeekday(capitalizeFirstLetter(new Date().toLocaleDateString('uk-UA', { 
                 weekday: 'long', 
                 year: 'numeric', 
                 month: 'long', 
                 day: 'numeric' 
-              }))}
+              })))}
             </Typography>
           </Box>
           

@@ -223,7 +223,6 @@ const vegetationService = {
     
     const vegetationHealth = this.assessVegetationHealth(ndvi, evi, savi, this.getSeason(new Date().getMonth() + 1));
     const historicalData = this.generateHistoricalData(latitude, longitude);
-    const zones = this.generateVegetationZones(latitude, longitude, ndvi, evi, savi);
     
     return {
       indices: {
@@ -235,7 +234,6 @@ const vegetationService = {
       },
       health: vegetationHealth,
       historical: historicalData,
-      zones: zones,
       season: this.getSeason(new Date().getMonth() + 1),
       coordinates: { latitude, longitude },
       source: indices.source,
@@ -321,58 +319,6 @@ const vegetationService = {
     }
     
     return historicalData;
-  },
-
-  generateVegetationZones(centerLat, centerLon, baseNDVI, baseEVI, baseSAVI) {
-    const zones = [];
-    const gridSize = 7;
-    const gridStep = 0.01;
-    
-    for (let latIdx = 0; latIdx < gridSize; latIdx++) {
-      for (let lonIdx = 0; lonIdx < gridSize; lonIdx++) {
-        const latOffset = (latIdx - Math.floor(gridSize/2)) * gridStep;
-        const lonOffset = (lonIdx - Math.floor(gridSize/2)) * gridStep;
-        
-        const lat = centerLat + latOffset;
-        const lon = centerLon + lonOffset;
-        
-        const variationFactor = 0.8 + Math.random() * 0.4;
-        const ndvi = Math.min(1, Math.max(-1, baseNDVI * variationFactor));
-        
-        let category, color, description;
-        if (ndvi < 0.2) {
-          category = 'low_vegetation';
-          color = '#8B4513';
-          description = 'Низька активність';
-        } else if (ndvi < 0.4) {
-          category = 'moderate_vegetation';
-          color = '#DAA520';
-          description = 'Помірна активність';
-        } else if (ndvi < 0.6) {
-          category = 'good_vegetation';
-          color = '#9ACD32';
-          description = 'Хороша активність';
-        } else {
-          category = 'high_vegetation';
-          color = '#228B22';
-          description = 'Висока активність';
-        }
-        
-        zones.push({
-          lat: parseFloat(lat.toFixed(6)),
-          lon: parseFloat(lon.toFixed(6)),
-          ndvi: parseFloat(ndvi.toFixed(3)),
-          evi: parseFloat((baseEVI * variationFactor).toFixed(3)),
-          savi: parseFloat((baseSAVI * variationFactor).toFixed(3)),
-          category,
-          color,
-          description,
-          radius: 800 + Math.random() * 400
-        });
-      }
-    }
-    
-    return zones;
   },
 
   async getCropRecommendations(city, vegetationData) {

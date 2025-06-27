@@ -169,3 +169,26 @@ export const getSafeCity = (city) => {
     return DEFAULT_CITY;
   }
 };
+
+const ukrainianWeekdays = {
+  'неділю': 'Неділя',
+  'понеділок': 'Понеділок', 
+  'вівторок': 'Вівторок',
+  'середу': 'Середа',
+  'четвер': 'Четвер',
+  "п'ятницю": "П'ятниця",
+  'суботу': 'Субота'
+};
+
+export const UkrainianWeekday = (dateString) => {
+  let result = dateString;
+  
+  for (const [incorrect, correct] of Object.entries(ukrainianWeekdays)) {
+    if (result.toLowerCase().includes(incorrect)) {
+      result = result.replace(new RegExp(incorrect, 'gi'), correct);
+      break;
+    }
+  }
+  
+  return result;
+};

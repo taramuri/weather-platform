@@ -120,15 +120,10 @@ const moistureService = {
       } else if (topSoilMoistureDiff < -10) {
         riskLevel = 'moderate-dry';
       } else if (topSoilMoistureDiff > 20) {
-        riskLevel = 'high-wet'; 
+        riskLevel = 'high-wet';
       } else if (topSoilMoistureDiff > 10) {
-        riskLevel = 'moderate-wet'; 
+        riskLevel = 'moderate-wet';
       }
-      
-      const riskZones = await this.generatePrecipitationBasedMoistureZones(
-        latitude, longitude, weatherData, currentTopSoilMoisture, historicalTopSoilMoisture
-      );
-      
       return {
         current_moisture: parseFloat(currentTopSoilMoisture.toFixed(1)),
         historical_average: parseFloat(historicalTopSoilMoisture.toFixed(1)),
@@ -137,7 +132,6 @@ const moistureService = {
         evapotranspiration_last_30_days: parseFloat(pastEvapotranspirationSum.toFixed(1)),
         moisture_balance: parseFloat(moistureBalance.toFixed(1)),
         risk_level: riskLevel,
-        risk_zones: riskZones,
         last_updated: new Date().toISOString()
       };
     } catch (error) {
@@ -182,7 +176,6 @@ const moistureService = {
     let baseMoisture = 50;
     
     const latitudeFactor = 1 - Math.abs(latitude) / 90; 
-    
     baseMoisture += latitudeFactor * 10;
     
     const precipitationFactor = avgDailyPrecipitation / 3;
@@ -194,206 +187,6 @@ const moistureService = {
     return Math.min(70, Math.max(30, baseMoisture));
   },
 
-  async generatePrecipitationBasedMoistureZones(latitude, longitude, weatherData, currentMoisture, historicalAverage) {
-    try {
-      const gridSize = 5;
-      const gridStep = 0.02; 
-      
-      const grid = [];
-      for (let latIdx = 0; latIdx < gridSize; latIdx++) {
-        for (let lonIdx = 0; lonIdx < gridSize; lonIdx++) {
-          const latOffset = (latIdx - Math.floor(gridSize/2)) * gridStep;
-          const lonOffset = (lonIdx - Math.floor(gridSize/2)) * gridStep;
-          
-          grid.push({
-            latitude: latitude + latOffset,
-            longitude: longitude + lonOffset
-          });
-        }
-      }
-      
-      const gridPrecipitation = grid.map(point => {
-        const variationFactor = 0.8 + Math.random() * 0.4; 
-        
-        const pastDaysCount = 7;
-        const totalDaysCount = weatherData.daily.time.length;
-        const startIdx = Math.max(0, totalDaysCount - pastDaysCount);
-        
-        let precipitation = 0;
-        for (let i = startIdx; i < totalDaysCount; i++) {
-          precipitation += (weatherData.daily.precipitation_sum[i] || 0) * variationFactor;
-        }
-        
-        return {
-          ...point,
-          precipitation
-        };
-      });
-      
-      const avgPrecipitation = gridPrecipitation.reduce((sum, point) => sum + point.precipitation, 0) / gridPrecipitation.length;
-      
-      const moistureDifference = currentMoisture - historicalAverage;
-      
-      const gridMoisture = gridPrecipitation.map(point => {
-        const relativePrec = point.precipitation / (avgPrecipitation || 1);
-        
-        let moisture;
-        if (moistureDifference > 10) {
-          moisture = currentMoisture + (relativePrec - 1) * 20;
-        } else if (moistureDifference < -10) {
-          moisture = currentMoisture + (relativePrec - 1) * 10;
-        } else {
-            // Нормальний випадок
-         moisture = currentMoisture + (relativePrec - 1) * 15;
-        }
-        
-        moisture = Math.min(100, Math.max(0, moisture));
-        
-        return {
-          ...point,
-          moisture
-        };
-      });
-      
-      const dryZones = gridMoisture
-        .filter(point => point.moisture < currentMoisture - 10)
-        .map(point => ({
-          lat: point.latitude,
-          lon: point.longitude,
-          moisture: parseFloat(point.moisture.toFixed(1)),
-          radius: 500 + Math.random() * 300 // Більший радіус для більш сухих зон
-        }));
-        
-      const normalZones = gridMoisture
-        .filter(point => point.moisture >= currentMoisture - 10 && point.moisture <= currentMoisture + 10)
-        .map(point => ({
-          lat: point.latitude,
-          lon: point.longitude,
-          moisture: parseFloat(point.moisture.toFixed(1)),
-          radius: 600 + Math.random() * 200
-        }));
-        
-      const wetZones = gridMoisture
-        .filter(point => point.moisture > currentMoisture + 10)
-        .map(point => ({
-          lat: point.latitude,
-          lon: point.longitude,
-          moisture: parseFloat(point.moisture.toFixed(1)),
-          radius: 400 + Math.random() * 200 
-        }));
-      
-      if (dryZones.length === 0) {
-        dryZones.push({
-          lat: latitude + (Math.random() - 0.5) * 0.03,
-          lon: longitude + (Math.random() - 0.5) * 0.03,
-          moisture: Math.max(5, currentMoisture - 15),
-          radius: 500 + Math.random() * 300
-        });
-      }
-      
-      if (normalZones.length === 0) {
-        normalZones.push({
-          lat: latitude + (Math.random() - 0.5) * 0.03,
-          lon: longitude + (Math.random() - 0.5) * 0.03,
-          moisture: currentMoisture,
-          radius: 600 + Math.random() * 200
-        });
-      }
-      
-      if (wetZones.length === 0) {
-        wetZones.push({
-          lat: latitude + (Math.random() - 0.5) * 0.03,
-          lon: longitude + (Math.random() - 0.5) * 0.03,
-          moisture: Math.min(95, currentMoisture + 15),
-          radius: 400 + Math.random() * 200
-        });
-      }
-      
-      return {
-        dry_zones: dryZones,
-        normal_zones: normalZones,
-        wet_zones: wetZones,
-        source: 'precipitation'
-      };
-    } catch (error) {
-      console.error('Помилка генерації зон на основі опадів:', error);
-      // У випадку помилки використовуємо базовий алгоритм
-      return this.generateBasicMoistureZones(latitude, longitude, currentMoisture, historicalAverage);
-    }
-  },
- 
-  calculateAverage(values) {
-    if (!values || values.length === 0) return 0;
-    return values.reduce((sum, val) => sum + (val || 0), 0) / values.length;
-  },
- 
-  generateBasicMoistureZones(centerLat, centerLon, currentMoisture, historicalAverage) {
-    const randomOffset = () => (Math.random() - 0.5) * 0.05; 
-    const moistureDifference = currentMoisture - historicalAverage;
-    
-    let dryZonesCount, normalZonesCount, wetZonesCount;
-    
-    if (moistureDifference < -15) {
-      // Якщо дуже сухо, більше сухих зон
-      dryZonesCount = 4;
-      normalZonesCount = 2;
-      wetZonesCount = 1;
-    } else if (moistureDifference < 0) {
-      // Якщо помірно сухо
-      dryZonesCount = 3;
-      normalZonesCount = 3;
-      wetZonesCount = 1;
-    } else if (moistureDifference > 15) {
-      dryZonesCount = 1;
-      normalZonesCount = 2;
-      wetZonesCount = 4;
-    } else if (moistureDifference > 0) {
-      // Якщо помірно волого
-      dryZonesCount = 1;
-      normalZonesCount = 3;
-      wetZonesCount = 3;
-    } else {
-      // Якщо нормальна вологість
-      dryZonesCount = 2;
-      normalZonesCount = 4;
-      wetZonesCount = 2;
-    }
-    
-    const dryZones = Array.from({ length: dryZonesCount }, () => {
-      return {
-        lat: centerLat + randomOffset(),
-        lon: centerLon + randomOffset(),
-        moisture: Math.max(5, currentMoisture - 15 + (Math.random() - 0.5) * 10),
-        radius: 500 + Math.random() * 500
-      };
-    });
-    
-    const normalZones = Array.from({ length: normalZonesCount }, () => {
-      return {
-        lat: centerLat + randomOffset(),
-        lon: centerLon + randomOffset(),
-        moisture: currentMoisture + (Math.random() - 0.5) * 10,
-        radius: 700 + Math.random() * 300
-      };
-    });
-    
-    const wetZones = Array.from({ length: wetZonesCount }, () => {
-      return {
-        lat: centerLat + randomOffset(),
-        lon: centerLon + randomOffset(),
-        moisture: Math.min(95, currentMoisture + 15 + (Math.random() - 0.5) * 10),
-        radius: 400 + Math.random() * 300
-      };
-    });
-    
-    return {
-      dry_zones: dryZones,
-      normal_zones: normalZones,
-      wet_zones: wetZones,
-      source: 'basic'
-    };
-  },
- 
   async getCropRecommendations(city, crop) {
     try {
       const moistureData = await this.getMoistureData({ city });
@@ -409,7 +202,6 @@ const moistureService = {
       };
       
       const cropRange = cropMoistureRanges[crop] || cropMoistureRanges.default;
-      
       const currentMoisture = moistureData.current_moisture;
       
       let status, recommendation;
